@@ -1,0 +1,1871 @@
+<!DOCTYPE html>
+<html lang="id" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Anatomy of a Claude Prompt — Master Prompt Architect</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Newsreader (Editorial Serif), Plus Jakarta Sans (Clean UI Sans), JetBrains Mono (Code/XML) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        serif: ['"Newsreader"', 'Georgia', 'Cambria', 'serif'],
+                        sans: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'],
+                        mono: ['"JetBrains Mono"', 'monospace'],
+                    },
+                    colors: {
+                        claude: {
+                            bg: '#191918',
+                            card: '#21201E',
+                            inner: '#262523',
+                            border: '#35332F',
+                            coral: '#D97757',
+                            text: '#ECE9E2',
+                            muted: '#A6A299',
+                        },
+                        anatomy: {
+                            role: '#3B82F6',        // Blue
+                            task: '#D97706',        // Amber / Ochre
+                            context: '#2DD4BF',     // Teal
+                            reasoning: '#EA580C',   // Deep Orange
+                            stop: '#E11D48',        // Rose / Crimson
+                            output: '#8B5CF6'       // Purple
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #161615;
+            color: #ECE9E2;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            overflow-x: hidden;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1C1B19;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #3A3834;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #524F49;
+        }
+
+        /* Editorial Card Styling */
+        .anatomy-poster {
+            background: linear-gradient(180deg, #21201E 0%, #1C1B19 100%);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.75), inset 0 1px 0 0 rgba(255, 255, 255, 0.06);
+        }
+
+        .anatomy-text-serif {
+            font-family: 'Newsreader', Georgia, serif;
+            font-size: 1.135rem;
+            line-height: 1.55;
+            letter-spacing: 0.01em;
+            color: #EAE7DF;
+        }
+
+        /* Auto-resizing textarea */
+        textarea.auto-expand {
+            resize: none;
+            overflow-y: hidden;
+        }
+
+        @keyframes pulseGlow {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.6; transform: scale(0.99); }
+        }
+        .ai-loading-pulse {
+            animation: pulseGlow 1.5s infinite ease-in-out;
+        }
+
+        @keyframes spinSlow {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .spin-slow {
+            animation: spinSlow 14s linear infinite;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col selection:bg-claude-coral/30 selection:text-white">
+
+    <!-- Top Navigation Header -->
+    <header class="sticky top-0 z-30 border-b border-claude-border bg-[#161615]/90 backdrop-blur-md">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-3">
+            <!-- Brand Title with 12-Ray Terracotta Starburst SVG -->
+            <div class="flex items-center gap-3 min-w-0">
+                <div class="w-9 h-9 rounded-xl bg-claude-card border border-claude-border flex items-center justify-center shadow-inner shrink-0">
+                    <svg class="w-6 h-6 text-claude-coral" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <g stroke="currentColor" stroke-width="8" stroke-linecap="round">
+                            <line x1="50" y1="10" x2="50" y2="90" />
+                            <line x1="10" y1="50" x2="90" y2="50" />
+                            <line x1="21.7" y1="21.7" x2="78.3" y2="78.3" />
+                            <line x1="78.3" y1="21.7" x2="21.7" y2="78.3" />
+                            <line x1="30" y1="15.4" x2="70" y2="84.6" />
+                            <line x1="15.4" y1="30" x2="84.6" y2="70" />
+                            <line x1="70" y1="15.4" x2="30" y2="84.6" />
+                            <line x1="84.6" y1="30" x2="15.4" y2="70" />
+                        </g>
+                    </svg>
+                </div>
+                <div class="truncate">
+                    <div class="flex items-center gap-2">
+                        <h1 class="font-serif text-lg sm:text-2xl font-medium tracking-tight text-claude-text truncate">
+                            The Anatomy of a Claude prompt
+                        </h1>
+                        <span class="hidden md:inline-block text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-claude-coral/15 text-claude-coral border border-claude-coral/30">
+                            Architect
+                        </span>
+                    </div>
+                    <p id="headerSubtitle" class="text-xs text-claude-muted hidden sm:block truncate">
+                        Rancang Master Prompt presisi dengan kerangka 6 pilar struktur anatomi
+                    </p>
+                </div>
+            </div>
+
+            <!-- Right Controls: API Key Status Button, Default Preset, UI Language Switcher -->
+            <div class="flex items-center gap-2 sm:gap-2.5 shrink-0">
+                <!-- API Key Manager Trigger Button -->
+                <button
+                    onclick="toggleApiPanel()"
+                    id="btnApiStatus"
+                    class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium bg-claude-card hover:bg-claude-inner border border-claude-border transition-all shadow-sm"
+                    title="Konfigurasi Gemini API Key (Disimpan di LocalStorage)"
+                >
+                    <span id="apiStatusDot" class="w-2 h-2 rounded-full bg-amber-400"></span>
+                    <span id="apiStatusText" class="text-claude-text">Mode Heuristik</span>
+                    <i data-lucide="key-round" class="w-3.5 h-3.5 text-claude-muted"></i>
+                </button>
+
+                <!-- Load Default GTM Template Button -->
+                <button
+                    onclick="loadDefaultSaaSPreset()"
+                    class="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-claude-card hover:bg-claude-inner text-claude-text border border-claude-border transition-all"
+                    title="Muat Template Standar SaaS GTM"
+                >
+                    <i data-lucide="rotate-ccw" class="w-3.5 h-3.5 text-claude-coral"></i>
+                    <span id="btnDefaultTemplateText" class="hidden lg:inline">Template Standar</span>
+                </button>
+
+                <!-- UI Language Toggle -->
+                <div class="inline-flex items-center bg-claude-card p-1 rounded-xl border border-claude-border text-xs font-semibold">
+                    <button id="btnUiId" onclick="setUILanguage('id')" class="px-2 py-1 rounded-lg transition-all bg-claude-coral text-white shadow-sm">
+                        ID
+                    </button>
+                    <button id="btnUiEn" onclick="setUILanguage('en')" class="px-2 py-1 rounded-lg transition-all text-claude-muted hover:text-white">
+                        EN
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Collapsible BYOK API Key Manager Bar (100% Client-Side LocalStorage) -->
+        <div id="apiKeyCollapsible" class="hidden border-t border-claude-border bg-[#1D1C1A]/95 backdrop-blur-lg transition-all">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+                <div class="bg-claude-card border border-claude-border rounded-2xl p-4 sm:p-5 shadow-2xl">
+                    <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-claude-border/70">
+                        <div class="flex items-start gap-3">
+                            <div class="w-9 h-9 rounded-xl bg-claude-coral/15 border border-claude-coral/30 flex items-center justify-center text-claude-coral shrink-0 mt-0.5">
+                                <i data-lucide="shield-check" class="w-5 h-5"></i>
+                            </div>
+                            <div>
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <h3 id="apiPanelTitle" class="text-sm font-semibold text-claude-text">
+                                        Pengaturan Google Gemini API Key (BYOK — LocalStorage)
+                                    </h3>
+                                    <span class="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                        100% Aman untuk GitHub Pages
+                                    </span>
+                                </div>
+                                <p id="apiPanelDesc" class="text-xs text-claude-muted mt-1 leading-relaxed">
+                                    API Key Anda disimpan <strong>murni di dalam browser Anda</strong> (<code class="text-claude-coral font-mono">localStorage</code>) dan tidak pernah dikirim ke server pihak ketiga mana pun. Tanpa API Key, aplikasi otomatis berjalan menggunakan <strong>Smart Heuristic Engine</strong> lokal.
+                                </p>
+                            </div>
+                        </div>
+                        <button onclick="toggleApiPanel()" class="self-end lg:self-center text-xs text-claude-muted hover:text-white flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#161615] border border-claude-border">
+                            <i data-lucide="x" class="w-3.5 h-3.5"></i>
+                            <span id="btnCloseApiPanel">Tutup Panel</span>
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-12 gap-4 pt-4 items-end">
+                        <!-- API Key Input -->
+                        <div class="md:col-span-5">
+                            <label for="apiKeyInput" class="block text-xs font-medium text-claude-muted mb-1.5 flex items-center justify-between">
+                                <span id="labelApiKeyInput">Google Gemini API Key</span>
+                                <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" class="text-[11px] text-claude-coral hover:underline flex items-center gap-1">
+                                    <span>Dapatkan Key Gratis di Google AI Studio</span>
+                                    <i data-lucide="external-link" class="w-3 h-3"></i>
+                                </a>
+                            </label>
+                            <div class="relative">
+                                <input
+                                    id="apiKeyInput"
+                                    type="password"
+                                    autocomplete="off"
+                                    placeholder="AIzaSy..."
+                                    class="w-full rounded-xl bg-[#141413] border border-claude-border focus:border-claude-coral text-xs font-mono text-claude-text pl-3.5 pr-10 py-2.5 outline-none transition-colors"
+                                />
+                                <button
+                                    type="button"
+                                    onclick="toggleApiKeyVisibility()"
+                                    class="absolute right-2.5 top-1/2 -translate-y-1/2 text-claude-muted hover:text-white p-1"
+                                    title="Tampilkan/Sembunyikan API Key"
+                                >
+                                    <i id="eyeIcon" data-lucide="eye" class="w-4 h-4"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Gemini Model Selector -->
+                        <div class="md:col-span-3">
+                            <label id="labelModelSelect" for="geminiModelSelect" class="block text-xs font-medium text-claude-muted mb-1.5">
+                                Model Gemini
+                            </label>
+                            <select
+                                id="geminiModelSelect"
+                                onchange="saveModelPreference()"
+                                class="w-full rounded-xl bg-[#141413] border border-claude-border focus:border-claude-coral text-xs text-claude-text px-3 py-2.5 outline-none"
+                            >
+                                <option value="gemini-2.5-flash">gemini-2.5-flash (Cepat & Akurat)</option>
+                                <option value="gemini-2.0-flash">gemini-2.0-flash (Ringan)</option>
+                                <option value="gemini-2.5-pro">gemini-2.5-pro (Deep Reasoning)</option>
+                            </select>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="md:col-span-4 flex flex-wrap items-center gap-2">
+                            <button
+                                onclick="saveApiKeyToStorage()"
+                                class="flex-1 py-2.5 px-3.5 rounded-xl bg-claude-coral hover:bg-[#e08364] text-white text-xs font-semibold transition-all flex items-center justify-center gap-1.5 shadow"
+                            >
+                                <i data-lucide="save" class="w-3.5 h-3.5"></i>
+                                <span id="btnSaveKeyText">Simpan Key</span>
+                            </button>
+                            <button
+                                id="btnTestConn"
+                                onclick="testGeminiConnection()"
+                                class="py-2.5 px-3 rounded-xl bg-claude-inner hover:bg-[#32302C] text-claude-text border border-claude-border text-xs font-medium transition-all flex items-center gap-1.5"
+                            >
+                                <i data-lucide="plug-zap" class="w-3.5 h-3.5 text-emerald-400"></i>
+                                <span id="btnTestConnText">Tes Koneksi</span>
+                            </button>
+                            <button
+                                onclick="clearApiKeyFromStorage()"
+                                class="py-2.5 px-3 rounded-xl bg-rose-950/30 hover:bg-rose-900/40 text-rose-300 border border-rose-500/30 text-xs font-medium transition-all flex items-center gap-1"
+                                title="Hapus API Key dari LocalStorage"
+                            >
+                                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                                <span id="btnClearKeyText" class="hidden sm:inline">Hapus</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Engine Mode Switch & Connection Feedback -->
+                    <div class="mt-3.5 pt-3 border-t border-claude-border/50 flex flex-wrap items-center justify-between gap-2 text-xs">
+                        <label class="inline-flex items-center gap-2 cursor-pointer select-none text-claude-muted hover:text-claude-text">
+                            <input id="forceHeuristicCheckbox" type="checkbox" onchange="updateEngineStatusBadge()" class="rounded bg-[#141413] border-claude-border text-claude-coral focus:ring-0">
+                            <span id="labelForceHeuristic">Paksa gunakan Simulasi Heuristik Lokal (Hemat kuota API meski Key tersimpan)</span>
+                        </label>
+                        <span id="apiTestFeedback" class="text-xs font-medium text-claude-muted"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Grid -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
+
+            <!-- LEFT COLUMN (5 cols): Short Prompt Input, Presets & AI Controls -->
+            <div class="lg:col-span-5 space-y-6">
+
+                <!-- Input Card -->
+                <div class="bg-claude-card border border-claude-border rounded-2xl p-5 sm:p-6 shadow-xl">
+                    <div class="flex items-center justify-between mb-3">
+                        <div class="flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-claude-coral"></span>
+                            <h2 id="inputCardTitle" class="text-xs sm:text-sm font-semibold uppercase tracking-wider text-claude-text">
+                                1. Tulis Ide atau Prompt Singkat Anda
+                            </h2>
+                        </div>
+                        <button onclick="clearRawInput()" class="text-xs text-claude-muted hover:text-claude-text flex items-center gap-1 transition-colors">
+                            <i data-lucide="eraser" class="w-3 h-3"></i>
+                            <span id="btnResetText">Bersihkan</span>
+                        </button>
+                    </div>
+
+                    <p id="inputCardDesc" class="text-xs text-claude-muted mb-4 leading-relaxed">
+                        Masukkan satu kalimat tujuan Anda. Sistem akan memetakan peran pakar, prioritas trade-off, batasan konteks, risiko, hingga kriteria selesai secara otomatis.
+                    </p>
+
+                    <!-- Raw Prompt Textarea -->
+                    <div class="relative">
+                        <textarea
+                            id="rawPromptInput"
+                            rows="4"
+                            class="w-full rounded-xl bg-[#151514] border border-claude-border focus:border-claude-coral focus:ring-1 focus:ring-claude-coral/50 text-sm text-claude-text placeholder-claude-muted/50 p-3.5 transition-all outline-none leading-relaxed"
+                            placeholder="Contoh: Buatkan rencana peluncuran 90 hari untuk aplikasi SaaS AI manajemen tugas khusus founder startup dengan tim 2 orang dan budget terbatas..."
+                        ></textarea>
+                    </div>
+
+                    <!-- Quick Starter Presets -->
+                    <div class="mt-3.5">
+                        <div class="flex items-center justify-between mb-2">
+                            <span id="quickExamplesLabel" class="text-[11px] font-semibold text-claude-muted uppercase tracking-wider">
+                                Preset Skenario Cepat:
+                            </span>
+                        </div>
+                        <div class="flex flex-wrap gap-1.5">
+                            <button onclick="fillSamplePrompt('saas')" class="text-xs px-2.5 py-1.5 rounded-lg bg-[#181816] hover:bg-claude-inner text-claude-muted hover:text-claude-text border border-claude-border/80 transition-all flex items-center gap-1.5">
+                                <span class="w-1.5 h-1.5 rounded-full bg-anatomy-role"></span>
+                                <span>SaaS 90-Day GTM Plan</span>
+                            </button>
+                            <button onclick="fillSamplePrompt('coding')" class="text-xs px-2.5 py-1.5 rounded-lg bg-[#181816] hover:bg-claude-inner text-claude-muted hover:text-claude-text border border-claude-border/80 transition-all flex items-center gap-1.5">
+                                <span class="w-1.5 h-1.5 rounded-full bg-anatomy-context"></span>
+                                <span>Arsitektur Sistem & Web App</span>
+                            </button>
+                            <button onclick="fillSamplePrompt('research')" class="text-xs px-2.5 py-1.5 rounded-lg bg-[#181816] hover:bg-claude-inner text-claude-muted hover:text-claude-text border border-claude-border/80 transition-all flex items-center gap-1.5">
+                                <span class="w-1.5 h-1.5 rounded-full bg-anatomy-output"></span>
+                                <span>Riset Akademik & Analisis Data</span>
+                            </button>
+                            <button onclick="fillSamplePrompt('content')" class="text-xs px-2.5 py-1.5 rounded-lg bg-[#181816] hover:bg-claude-inner text-claude-muted hover:text-claude-text border border-claude-border/80 transition-all flex items-center gap-1.5">
+                                <span class="w-1.5 h-1.5 rounded-full bg-anatomy-task"></span>
+                                <span>Strategi Konten & Copywriting</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Configuration Row: Output Language & Domain Preset -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-5 pt-4 border-t border-claude-border/60">
+                        <div>
+                            <label id="labelOutputLang" for="outputLangSelect" class="block text-xs font-medium text-claude-muted mb-1.5">
+                                Bahasa Output Prompt
+                            </label>
+                            <select id="outputLangSelect" class="w-full rounded-xl bg-[#151514] border border-claude-border text-xs text-claude-text px-3 py-2.5 focus:border-claude-coral outline-none">
+                                <option value="English">English (Standar Internasional)</option>
+                                <option value="Bahasa Indonesia">Bahasa Indonesia</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label id="labelDomainPreset" for="domainSelect" class="block text-xs font-medium text-claude-muted mb-1.5">
+                                Fokus Domain Keahlian
+                            </label>
+                            <select id="domainSelect" class="w-full rounded-xl bg-[#151514] border border-claude-border text-xs text-claude-text px-3 py-2.5 focus:border-claude-coral outline-none">
+                                <option value="auto">Otomatis (Deteksi Konteks)</option>
+                                <option value="saas">SaaS & Go-To-Market Strategy</option>
+                                <option value="engineering">Software Engineering & Architecture</option>
+                                <option value="research">Academic & Quantitative Research</option>
+                                <option value="product">Product Management & UX</option>
+                                <option value="content">Content Strategy & Copywriting</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Main CTA Button -->
+                    <button
+                        id="btnGenerate"
+                        onclick="generateMasterPrompt()"
+                        class="mt-5 w-full py-3.5 px-5 rounded-xl bg-claude-coral hover:bg-[#e08364] active:scale-[0.99] text-white font-semibold text-sm shadow-lg shadow-claude-coral/20 transition-all flex items-center justify-center gap-2.5 group"
+                    >
+                        <i data-lucide="wand-sparkles" class="w-4 h-4 transition-transform group-hover:rotate-12"></i>
+                        <span id="btnGenerateText">Analisis & Bangun Master Prompt</span>
+                    </button>
+
+                    <!-- Active Engine Sub-caption -->
+                    <div class="mt-2.5 flex items-center justify-between text-[11px] text-claude-muted px-1">
+                        <span id="engineFootnote">Mesin aktif: Smart Heuristic (Lokal)</span>
+                        <button onclick="toggleApiPanel()" class="text-claude-coral hover:underline font-medium">
+                            Atur API Key →
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Anatomy Legend & Strategic Diagnostic Card -->
+                <div class="bg-claude-card border border-claude-border rounded-2xl p-5 sm:p-6 shadow-xl space-y-4">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <i data-lucide="layers" class="w-4 h-4 text-claude-coral"></i>
+                            <h3 id="legendTitle" class="text-xs font-semibold uppercase tracking-wider text-claude-text">
+                                Diagnostik 6 Pilar Anatomi
+                            </h3>
+                        </div>
+                        <span id="completenessBadge" class="text-[11px] px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">
+                            6/6 Komponen Terisi
+                        </span>
+                    </div>
+
+                    <!-- Strategic Insight Box -->
+                    <div class="p-3.5 rounded-xl bg-[#151514] border border-claude-border/80 text-xs text-claude-muted leading-relaxed">
+                        <div class="flex items-start gap-2.5">
+                            <i data-lucide="sparkles" class="w-4 h-4 text-claude-coral shrink-0 mt-0.5"></i>
+                            <div>
+                                <span id="aiInsightTitle" class="font-semibold text-claude-text block mb-0.5">Catatan Arsitektur Prompt:</span>
+                                <span id="aiInsightText">
+                                    Struktur ini mengunci kejelasan <strong>Role</strong> (beserta trade-off prioritasnya), <strong>Context</strong> (fakta & risiko), serta <strong>Stop Conditions</strong> agar AI memberikan hasil sekelas eksekutif/founder tanpa bertele-tele.
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 6 Color Pillars Reference Grid -->
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1">
+                        <div class="p-2.5 rounded-xl bg-[#171715] border-l-[3px] border-anatomy-role flex flex-col justify-between">
+                            <span class="text-xs font-bold text-anatomy-role">1. Role</span>
+                            <span id="descRole" class="text-[11px] text-claude-muted mt-0.5">Persona & prioritas</span>
+                        </div>
+                        <div class="p-2.5 rounded-xl bg-[#171715] border-l-[3px] border-anatomy-task flex flex-col justify-between">
+                            <span class="text-xs font-bold text-anatomy-task">2. Task</span>
+                            <span id="descTask" class="text-[11px] text-claude-muted mt-0.5">Misi & validasi</span>
+                        </div>
+                        <div class="p-2.5 rounded-xl bg-[#171715] border-l-[3px] border-anatomy-context flex flex-col justify-between">
+                            <span class="text-xs font-bold text-anatomy-context">3. Context</span>
+                            <span id="descContext" class="text-[11px] text-claude-muted mt-0.5">Fakta, tim & risiko</span>
+                        </div>
+                        <div class="p-2.5 rounded-xl bg-[#171715] border-l-[3px] border-anatomy-reasoning flex flex-col justify-between">
+                            <span class="text-xs font-bold text-anatomy-reasoning">4. Reasoning</span>
+                            <span id="descReasoning" class="text-[11px] text-claude-muted mt-0.5">Logika & pembelaan</span>
+                        </div>
+                        <div class="p-2.5 rounded-xl bg-[#171715] border-l-[3px] border-anatomy-stop flex flex-col justify-between">
+                            <span class="text-xs font-bold text-anatomy-stop">5. Stop cond.</span>
+                            <span id="descStop" class="text-[11px] text-claude-muted mt-0.5">Syarat tuntas terukur</span>
+                        </div>
+                        <div class="p-2.5 rounded-xl bg-[#171715] border-l-[3px] border-anatomy-output flex flex-col justify-between">
+                            <span class="text-xs font-bold text-anatomy-output">6. Output</span>
+                            <span id="descOutput" class="text-[11px] text-claude-muted mt-0.5">Format & rincian aksi</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RIGHT COLUMN (7 cols): Interactive 6-Part Anatomy Card & Export Tabs -->
+            <div class="lg:col-span-7 space-y-5">
+
+                <!-- Top Toolbar: View Format Tabs + Copy & Test Actions -->
+                <div class="flex flex-wrap items-center justify-between gap-3 bg-claude-card border border-claude-border rounded-2xl p-2.5 sm:px-3.5">
+                    <!-- 4 View/Export Tabs -->
+                    <div class="flex flex-wrap items-center gap-1 bg-[#151514] p-1 rounded-xl border border-claude-border">
+                        <button
+                            id="tabPoster"
+                            onclick="switchViewTab('poster')"
+                            class="px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 bg-claude-inner text-white shadow"
+                        >
+                            <i data-lucide="layout-list" class="w-3.5 h-3.5 text-claude-coral"></i>
+                            <span id="tabPosterText">Visual Anatomy</span>
+                        </button>
+                        <button
+                            id="tabClean"
+                            onclick="switchViewTab('clean')"
+                            class="px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all text-claude-muted hover:text-white"
+                        >
+                            <span>Plain Text</span>
+                        </button>
+                        <button
+                            id="tabXml"
+                            onclick="switchViewTab('xml')"
+                            class="px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all text-claude-muted hover:text-white font-mono"
+                        >
+                            <span>&lt;XML&gt;</span>
+                        </button>
+                        <button
+                            id="tabMarkdown"
+                            onclick="switchViewTab('markdown')"
+                            class="px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all text-claude-muted hover:text-white"
+                        >
+                            <span>Markdown</span>
+                        </button>
+                    </div>
+
+                    <!-- Primary Output Actions -->
+                    <div class="flex items-center gap-2">
+                        <button
+                            onclick="copyFullPrompt()"
+                            class="px-3.5 py-2 rounded-xl bg-claude-coral hover:bg-[#e08364] text-white text-xs font-semibold transition-all flex items-center gap-1.5 shadow-sm"
+                        >
+                            <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                            <span id="btnCopyMasterText">Salin Prompt</span>
+                        </button>
+
+                        <button
+                            onclick="openTestModal()"
+                            class="px-3 py-2 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 text-xs font-semibold transition-all flex items-center gap-1.5"
+                        >
+                            <i data-lucide="play" class="w-3.5 h-3.5 fill-current"></i>
+                            <span id="btnTestPromptText">Uji Prompt</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- VIEW 1: THE ANATOMY OF A CLAUDE PROMPT CARD (Interactive & Editable) -->
+                <div id="posterViewContainer" class="anatomy-poster rounded-3xl border border-claude-border/90 p-5 sm:p-8 md:p-10 relative overflow-hidden">
+
+                    <!-- Loading Overlay inside Card during Generation -->
+                    <div id="posterLoadingOverlay" class="hidden absolute inset-0 z-20 bg-[#181816]/85 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center">
+                        <svg class="w-14 h-14 text-claude-coral spin-slow mb-4" viewBox="0 0 100 100" fill="none">
+                            <g stroke="currentColor" stroke-width="8" stroke-linecap="round">
+                                <line x1="50" y1="10" x2="50" y2="90" />
+                                <line x1="10" y1="50" x2="90" y2="50" />
+                                <line x1="21.7" y1="21.7" x2="78.3" y2="78.3" />
+                                <line x1="78.3" y1="21.7" x2="21.7" y2="78.3" />
+                                <line x1="30" y1="15.4" x2="70" y2="84.6" />
+                                <line x1="15.4" y1="30" x2="84.6" y2="70" />
+                                <line x1="70" y1="15.4" x2="30" y2="84.6" />
+                                <line x1="84.6" y1="30" x2="15.4" y2="70" />
+                            </g>
+                        </svg>
+                        <h3 id="loadingTitle" class="font-serif text-2xl text-claude-text mb-1">Merakit Anatomi Master Prompt...</h3>
+                        <p id="loadingSub" class="text-xs text-claude-muted max-w-md">
+                            Menyusun Role, Task, Context, Reasoning, Stop Conditions, dan Output secara terstruktur...
+                        </p>
+                    </div>
+
+                    <!-- Card Header with 12-Ray Starburst & Editorial Serif Title -->
+                    <div class="flex items-center justify-between gap-3 mb-6 pb-4 border-b border-claude-border/60">
+                        <div class="flex items-center gap-3.5">
+                            <svg class="w-9 h-9 sm:w-11 sm:h-11 text-claude-coral shrink-0" viewBox="0 0 100 100" fill="none">
+                                <g stroke="currentColor" stroke-width="7.5" stroke-linecap="round">
+                                    <line x1="50" y1="8" x2="50" y2="92" />
+                                    <line x1="8" y1="50" x2="92" y2="50" />
+                                    <line x1="20.3" y1="20.3" x2="79.7" y2="79.7" />
+                                    <line x1="79.7" y1="20.3" x2="20.3" y2="79.7" />
+                                    <line x1="29" y1="13.6" x2="71" y2="86.4" />
+                                    <line x1="13.6" y1="29" x2="86.4" y2="71" />
+                                    <line x1="71" y1="13.6" x2="29" y2="86.4" />
+                                    <line x1="86.4" y1="29" x2="13.6" y2="71" />
+                                </g>
+                            </svg>
+                            <h2 class="font-serif text-2xl sm:text-[34px] font-normal tracking-tight text-[#F3F1EC] leading-tight">
+                                The Anatomy of a Claude prompt
+                            </h2>
+                        </div>
+                        <span class="hidden sm:inline-flex items-center gap-1.5 text-[11px] text-claude-muted bg-[#151514]/90 px-2.5 py-1 rounded-full border border-claude-border shrink-0">
+                            <i data-lucide="pen-line" class="w-3 h-3 text-claude-coral"></i>
+                            <span id="editHintBadge">Klik teks untuk edit langsung</span>
+                        </span>
+                    </div>
+
+                    <!-- Inner Dark Frame containing the 6 Anatomy Pillars -->
+                    <div class="bg-[#252422]/95 rounded-2xl p-4 sm:p-7 border border-white/5 space-y-7">
+
+                        <!-- 1. ROLE SECTION (Blue #3B82F6) -->
+                        <div class="grid grid-cols-1 sm:grid-cols-12 gap-2.5 sm:gap-5 items-center group">
+                            <div class="sm:col-span-9 border-l-[3.5px] border-anatomy-role pl-4 sm:pl-5 py-0.5 transition-colors group-hover:bg-white/[0.015] rounded-r-lg">
+                                <textarea
+                                    id="fieldRole"
+                                    oninput="autoResizeAndSync(this)"
+                                    rows="3"
+                                    class="auto-expand w-full bg-transparent anatomy-text-serif focus:outline-none focus:bg-black/25 rounded px-1.5 -mx-1.5 transition-colors"
+                                    placeholder="Define the expert role and core prioritization trade-off..."
+                                ></textarea>
+                            </div>
+                            <div class="sm:col-span-3 flex sm:justify-start items-center pl-4 sm:pl-0">
+                                <div class="border-l-[3.5px] border-anatomy-role pl-3.5 py-1.5 flex items-center justify-between w-full">
+                                    <span class="font-sans font-bold text-base sm:text-lg tracking-tight text-anatomy-role">
+                                        Role
+                                    </span>
+                                    <button onclick="refineSingleSection('role')" title="Pertajam bagian Role" class="opacity-70 sm:opacity-0 group-hover:opacity-100 focus:opacity-100 p-1.5 rounded-lg hover:bg-white/10 text-claude-muted hover:text-white transition-all">
+                                        <i data-lucide="sparkles" class="w-3.5 h-3.5 text-anatomy-role"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 2. TASK SECTION (Amber/Orange #D97706) -->
+                        <div class="grid grid-cols-1 sm:grid-cols-12 gap-2.5 sm:gap-5 items-center group">
+                            <div class="sm:col-span-9 border-l-[3.5px] border-anatomy-task pl-4 sm:pl-5 py-0.5 transition-colors group-hover:bg-white/[0.015] rounded-r-lg">
+                                <textarea
+                                    id="fieldTask"
+                                    oninput="autoResizeAndSync(this)"
+                                    rows="3"
+                                    class="auto-expand w-full bg-transparent anatomy-text-serif focus:outline-none focus:bg-black/25 rounded px-1.5 -mx-1.5 transition-colors"
+                                    placeholder="Define the concrete task, validation step, and deliverable..."
+                                ></textarea>
+                            </div>
+                            <div class="sm:col-span-3 flex sm:justify-start items-center pl-4 sm:pl-0">
+                                <div class="border-l-[3.5px] border-anatomy-task pl-3.5 py-1.5 flex items-center justify-between w-full">
+                                    <span class="font-sans font-bold text-base sm:text-lg tracking-tight text-anatomy-task">
+                                        Task
+                                    </span>
+                                    <button onclick="refineSingleSection('task')" title="Pertajam bagian Task" class="opacity-70 sm:opacity-0 group-hover:opacity-100 focus:opacity-100 p-1.5 rounded-lg hover:bg-white/10 text-claude-muted hover:text-white transition-all">
+                                        <i data-lucide="sparkles" class="w-3.5 h-3.5 text-anatomy-task"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 3. CONTEXT SECTION (Teal #2DD4BF) -->
+                        <div class="grid grid-cols-1 sm:grid-cols-12 gap-2.5 sm:gap-5 items-center group">
+                            <div class="sm:col-span-9 border-l-[3.5px] border-anatomy-context pl-4 sm:pl-5 py-0.5 transition-colors group-hover:bg-white/[0.015] rounded-r-lg">
+                                <textarea
+                                    id="fieldContext"
+                                    oninput="autoResizeAndSync(this)"
+                                    rows="5"
+                                    class="auto-expand w-full bg-transparent anatomy-text-serif focus:outline-none focus:bg-black/25 rounded px-1.5 -mx-1.5 transition-colors"
+                                    placeholder="Here's what I know:&#10;-Product: ...&#10;-Team: ...&#10;-Resources: ...&#10;-Key Risks: ..."
+                                ></textarea>
+                            </div>
+                            <div class="sm:col-span-3 flex sm:justify-start items-center pl-4 sm:pl-0">
+                                <div class="border-l-[3.5px] border-anatomy-context pl-3.5 py-1.5 flex items-center justify-between w-full">
+                                    <span class="font-sans font-bold text-base sm:text-lg tracking-tight text-anatomy-context">
+                                        Context
+                                    </span>
+                                    <button onclick="refineSingleSection('context')" title="Pertajam bagian Context" class="opacity-70 sm:opacity-0 group-hover:opacity-100 focus:opacity-100 p-1.5 rounded-lg hover:bg-white/10 text-claude-muted hover:text-white transition-all">
+                                        <i data-lucide="sparkles" class="w-3.5 h-3.5 text-anatomy-context"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 4. REASONING SECTION (Deep Orange #EA580C) -->
+                        <div class="grid grid-cols-1 sm:grid-cols-12 gap-2.5 sm:gap-5 items-center group">
+                            <div class="sm:col-span-9 border-l-[3.5px] border-anatomy-reasoning pl-4 sm:pl-5 py-0.5 transition-colors group-hover:bg-white/[0.015] rounded-r-lg">
+                                <textarea
+                                    id="fieldReasoning"
+                                    oninput="autoResizeAndSync(this)"
+                                    rows="4"
+                                    class="auto-expand w-full bg-transparent anatomy-text-serif focus:outline-none focus:bg-black/25 rounded px-1.5 -mx-1.5 transition-colors"
+                                    placeholder="Define the strategic reasoning and why each step must be defended..."
+                                ></textarea>
+                            </div>
+                            <div class="sm:col-span-3 flex sm:justify-start items-center pl-4 sm:pl-0">
+                                <div class="border-l-[3.5px] border-anatomy-reasoning pl-3.5 py-1.5 flex items-center justify-between w-full">
+                                    <span class="font-sans font-bold text-base sm:text-lg tracking-tight text-anatomy-reasoning">
+                                        Reasoning
+                                    </span>
+                                    <button onclick="refineSingleSection('reasoning')" title="Pertajam bagian Reasoning" class="opacity-70 sm:opacity-0 group-hover:opacity-100 focus:opacity-100 p-1.5 rounded-lg hover:bg-white/10 text-claude-muted hover:text-white transition-all">
+                                        <i data-lucide="sparkles" class="w-3.5 h-3.5 text-anatomy-reasoning"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 5. STOP CONDITIONS SECTION (Rose/Crimson #E11D48) -->
+                        <div class="grid grid-cols-1 sm:grid-cols-12 gap-2.5 sm:gap-5 items-center group">
+                            <div class="sm:col-span-9 border-l-[3.5px] border-anatomy-stop pl-4 sm:pl-5 py-0.5 transition-colors group-hover:bg-white/[0.015] rounded-r-lg">
+                                <textarea
+                                    id="fieldStop"
+                                    oninput="autoResizeAndSync(this)"
+                                    rows="4"
+                                    class="auto-expand w-full bg-transparent anatomy-text-serif focus:outline-none focus:bg-black/25 rounded px-1.5 -mx-1.5 transition-colors"
+                                    placeholder="Only stop when:&#10;-Condition 1&#10;-Condition 2..."
+                                ></textarea>
+                            </div>
+                            <div class="sm:col-span-3 flex sm:justify-start items-center pl-4 sm:pl-0">
+                                <div class="border-l-[3.5px] border-anatomy-stop pl-3.5 py-1.5 flex items-center justify-between w-full">
+                                    <div class="leading-tight">
+                                        <span class="font-sans font-bold text-base sm:text-lg tracking-tight text-anatomy-stop block">
+                                            Stop
+                                        </span>
+                                        <span class="font-sans font-bold text-sm sm:text-base tracking-tight text-anatomy-stop block">
+                                            conditions
+                                        </span>
+                                    </div>
+                                    <button onclick="refineSingleSection('stop')" title="Pertajam bagian Stop Conditions" class="opacity-70 sm:opacity-0 group-hover:opacity-100 focus:opacity-100 p-1.5 rounded-lg hover:bg-white/10 text-claude-muted hover:text-white transition-all">
+                                        <i data-lucide="sparkles" class="w-3.5 h-3.5 text-anatomy-stop"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 6. OUTPUT SECTION (Purple #8B5CF6) -->
+                        <div class="grid grid-cols-1 sm:grid-cols-12 gap-2.5 sm:gap-5 items-center group">
+                            <div class="sm:col-span-9 border-l-[3.5px] border-anatomy-output pl-4 sm:pl-5 py-0.5 transition-colors group-hover:bg-white/[0.015] rounded-r-lg">
+                                <textarea
+                                    id="fieldOutput"
+                                    oninput="autoResizeAndSync(this)"
+                                    rows="5"
+                                    class="auto-expand w-full bg-transparent anatomy-text-serif focus:outline-none focus:bg-black/25 rounded px-1.5 -mx-1.5 transition-colors"
+                                    placeholder="Present as... For each action:&#10;-Action: ...&#10;-Owner: ...&#10;-Risk: ...&#10;-Rationale + Output: ..."
+                                ></textarea>
+                            </div>
+                            <div class="sm:col-span-3 flex sm:justify-start items-center pl-4 sm:pl-0">
+                                <div class="border-l-[3.5px] border-anatomy-output pl-3.5 py-1.5 flex items-center justify-between w-full">
+                                    <span class="font-sans font-bold text-base sm:text-lg tracking-tight text-anatomy-output">
+                                        Output
+                                    </span>
+                                    <button onclick="refineSingleSection('output')" title="Pertajam bagian Output" class="opacity-70 sm:opacity-0 group-hover:opacity-100 focus:opacity-100 p-1.5 rounded-lg hover:bg-white/10 text-claude-muted hover:text-white transition-all">
+                                        <i data-lucide="sparkles" class="w-3.5 h-3.5 text-anatomy-output"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- VIEW 2: COMPILED TEXT / XML / MARKDOWN EXPORT VIEW -->
+                <div id="rawViewContainer" class="hidden bg-claude-card border border-claude-border rounded-3xl p-5 sm:p-7 shadow-xl space-y-4">
+                    <div class="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-claude-border">
+                        <div>
+                            <h3 id="rawViewTitle" class="text-base font-semibold text-claude-text">
+                                Master Prompt Terkompilasi
+                            </h3>
+                            <p id="rawViewSubtitle" class="text-xs text-claude-muted">
+                                Siap disalin dan ditempel langsung ke Claude, ChatGPT, atau Gemini
+                            </p>
+                        </div>
+                        <span id="activeFormatBadge" class="text-xs font-mono px-2.5 py-1 rounded-lg bg-[#151514] text-claude-coral border border-claude-border">
+                            Format: Plain Text
+                        </span>
+                    </div>
+
+                    <div class="relative">
+                        <pre id="compiledPromptPreview" class="w-full rounded-2xl bg-[#141413] border border-claude-border p-4 sm:p-5 text-xs sm:text-sm font-mono text-claude-text whitespace-pre-wrap leading-relaxed overflow-x-auto max-h-[540px]"></pre>
+                    </div>
+
+                    <div class="flex flex-wrap items-center justify-between gap-3 pt-2">
+                        <span id="charCountInfo" class="text-xs text-claude-muted font-mono">0 kata • 0 karakter</span>
+                        <div class="flex items-center gap-2">
+                            <button onclick="downloadMasterPrompt()" class="px-3.5 py-2 rounded-xl bg-[#181816] hover:bg-claude-inner text-claude-text border border-claude-border text-xs font-medium transition-all flex items-center gap-1.5">
+                                <i data-lucide="download" class="w-3.5 h-3.5"></i>
+                                <span>Unduh .TXT</span>
+                            </button>
+                            <button onclick="copyFullPrompt()" class="px-4 py-2 rounded-xl bg-claude-coral hover:bg-[#e08364] text-white text-xs font-semibold transition-all flex items-center gap-1.5">
+                                <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                                <span>Salin ke Clipboard</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+    <!-- MODAL: TEST / EXECUTE MASTER PROMPT -->
+    <div id="testPromptModal" class="fixed inset-0 z-50 hidden bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-claude-card border border-claude-border rounded-3xl max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+            <!-- Modal Header -->
+            <div class="px-6 py-4 border-b border-claude-border flex items-center justify-between bg-[#1B1A18]">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-8 h-8 rounded-lg bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                        <i data-lucide="terminal" class="w-4 h-4"></i>
+                    </div>
+                    <div>
+                        <h3 id="modalTestTitle" class="text-sm font-semibold text-claude-text">
+                            Simulator Eksekusi Master Prompt
+                        </h3>
+                        <p id="modalTestSub" class="text-[11px] text-claude-muted">
+                            Menguji hasil keluaran dari Master Prompt 6-Pilar yang telah Anda rancang
+                        </p>
+                    </div>
+                </div>
+                <button onclick="closeTestModal()" class="p-1.5 rounded-lg text-claude-muted hover:text-white hover:bg-white/10 transition-colors">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <!-- Modal Body -->
+            <div class="p-6 overflow-y-auto space-y-4 flex-1">
+                <div class="p-3.5 rounded-xl bg-[#151514] border border-claude-border">
+                    <div class="flex items-center justify-between mb-1.5">
+                        <span class="text-[11px] font-semibold uppercase tracking-wider text-claude-coral">Master Prompt yang Dieksekusi:</span>
+                        <button onclick="runPromptSimulation()" class="text-xs text-emerald-400 hover:underline flex items-center gap-1">
+                            <i data-lucide="refresh-cw" class="w-3 h-3"></i>
+                            <span>Jalankan Ulang</span>
+                        </button>
+                    </div>
+                    <p id="modalPromptSummary" class="text-xs text-claude-muted line-clamp-3 font-mono"></p>
+                </div>
+
+                <!-- Simulation Output Area -->
+                <div class="rounded-2xl bg-[#141413] border border-claude-border p-5 min-h-[280px] relative">
+                    <div id="simLoading" class="hidden py-12 flex flex-col items-center justify-center text-center">
+                        <div class="w-8 h-8 border-2 border-claude-coral border-t-transparent rounded-full animate-spin mb-3"></div>
+                        <p class="text-sm font-serif text-claude-text">Mengeksekusi Master Prompt...</p>
+                        <p class="text-xs text-claude-muted mt-1">Mengikuti instruksi Role, Context, Reasoning, Stop Conditions & Output</p>
+                    </div>
+                    <div id="simOutputContent" class="text-sm text-claude-text whitespace-pre-wrap leading-relaxed font-sans"></div>
+                </div>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="px-6 py-3.5 border-t border-claude-border bg-[#1B1A18] flex items-center justify-between">
+                <span id="simEngineNotice" class="text-xs text-claude-muted">Tip: Hubungkan API Key untuk melihat respons LLM secara penuh.</span>
+                <div class="flex items-center gap-2">
+                    <button onclick="copySimOutput()" class="px-3.5 py-1.5 rounded-xl bg-claude-inner hover:bg-[#34322E] text-xs font-medium text-claude-text border border-claude-border transition-all flex items-center gap-1.5">
+                        <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                        <span>Salin Hasil</span>
+                    </button>
+                    <button onclick="closeTestModal()" class="px-4 py-1.5 rounded-xl bg-claude-coral text-white text-xs font-semibold">
+                        Tutup
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Toast Notification Container -->
+    <div id="toastContainer" class="fixed bottom-5 right-5 z-50 pointer-events-none flex flex-col gap-2"></div>
+
+    <!-- Hidden textarea for reliable clipboard copy -->
+    <textarea id="clipboardHelper" class="fixed -top-96 -left-96 opacity-0 pointer-events-none"></textarea>
+
+    <script>
+        // ============================================================================
+        // LOCALSTORAGE KEYS & STATE (100% Client-Side, Safe for Public GitHub Repos)
+        // ============================================================================
+        const STORAGE_KEY_API = 'anatomy_gemini_api_key';
+        const STORAGE_KEY_MODEL = 'anatomy_gemini_model';
+
+        let currentUILang = 'id';
+        let currentTab = 'poster'; // 'poster' | 'clean' | 'xml' | 'markdown'
+        let currentFormat = 'clean';
+
+        // Canonical 6-Part Default State (SaaS 90-Day GTM Launch Plan)
+        const DEFAULT_SAAS_ANATOMY_EN = {
+            rawIdea: "Build a 90-day go-to-market launch plan for an AI task manager for founders with a 2-person team and lean budget.",
+            role: "Act as a senior go-to-market strategist with deep expertise launching early-stage SaaS tools. Prioritize traction speed over brand perfection.",
+            task: "Build a 90-day launch plan for a new AI productivity tool for founders. Validate the core messaging, end with a launch-ready brief.",
+            context: "Here's what I know:\n-Product: AI task manager for founders (25–40).\n-Team: 2-person (Founder + Growth marketer).\n-Resources: Lean budget, 15–20 beta users.\n-Key Risks: Adoption, Retention, Positioning.",
+            reasoning: "The goal is a crisp, launch-ready strategy. By locking in ICP clarity upfront and asking you to defend each step, the output will be truly actionable and founder-grade.",
+            stop: "Only stop when:\n-A 12-week roadmap with 3–4 actions/week.\n-Every action links to the risk it addresses.\n-Plan ends with a final Launch Decision Gate.",
+            output: "Present as a weekly sprint plan. For each action:\n-Action: The specific task to complete.\n-Owner: Founder, Growth lead, or Designer.\n-Risk: Adoption, Retention, or Positioning.\n-Rationale + Output: reasoning, deliverable.",
+            insight: "Kerangka ini mengunci trade-off utama pada Role ('traction speed over brand perfection'), memetakan 4 risiko konkret di Context, dan memaksa setiap aksi mingguan terhubung ke risiko serta Launch Decision Gate."
+        };
+
+        const DEFAULT_SAAS_ANATOMY_ID = {
+            rawIdea: "Buatkan rencana peluncuran (Go-To-Market) 90 hari untuk aplikasi SaaS AI pengelola tugas khusus founder startup dengan tim 2 orang dan budget terbatas.",
+            role: "Bertindaklah sebagai Senior Go-To-Market Strategist dengan keahlian mendalam meluncurkan produk SaaS tahap awal. Prioritaskan kecepatan traksi pasar di atas kesempurnaan branding.",
+            task: "Susun rencana peluncuran 90 hari untuk aplikasi produktivitas AI baru khusus para founder. Validasi pesan utama (core messaging), dan akhiri dengan dokumen brief siap eksekusi.",
+            context: "Berikut konteks yang diketahui:\n-Product: AI task manager untuk founder (usia 25–40).\n-Team: 2 orang (Founder + Growth marketer).\n-Resources: Budget ramping (lean), 15–20 pengguna beta.\n-Key Risks: Adopsi, Retensi, Positioning.",
+            reasoning: "Tujuannya adalah strategi peluncuran yang tajam dan siap dieksekusi. Dengan mengunci kejelasan profil pelanggan ideal (ICP) di awal dan meminta Anda mempertahankan alasan di setiap langkah, hasilnya akan benar-benar aplikatif dan berstandar founder.",
+            stop: "Hanya berhenti ketika:\n-Tersedia roadmap 12 minggu dengan 3–4 aksi/minggu.\n-Setiap aksi terhubung langsung dengan risiko yang ditanganinya.\n-Rencana ditutup dengan gerbang keputusan akhir (Launch Decision Gate).",
+            output: "Sajikan sebagai rencana sprint mingguan. Untuk setiap aksi:\n-Action: Tugas spesifik yang harus diselesaikan.\n-Owner: Founder, Growth lead, atau Designer.\n-Risk: Adopsi, Retensi, atau Positioning.\n-Rationale + Output: penalaran logis dan hasil kerja nyata (deliverable).",
+            insight: "Kerangka 6 pilar dalam Bahasa Indonesia: menetapkan prioritas eksekusi di Role, batasan sumber daya di Context, serta kriteria selesai yang terukur di Stop Conditions."
+        };
+
+        // Preset Library
+        const PRESET_TEMPLATES = {
+            saas: {
+                domain: 'saas',
+                en: DEFAULT_SAAS_ANATOMY_EN,
+                id: DEFAULT_SAAS_ANATOMY_ID
+            },
+            coding: {
+                domain: 'engineering',
+                en: {
+                    rawIdea: "Design a production-ready offline-first POS web application architecture and database schema for multi-branch retail stores.",
+                    role: "Act as a principal distributed systems architect with deep expertise in offline-first web applications. Prioritize data consistency and fault tolerance over premature microservice complexity.",
+                    task: "Architect an offline-first multi-branch Point of Sale (POS) system and synchronization protocol. Validate conflict resolution edge cases, end with an implementation-ready technical blueprint.",
+                    context: "Here's what I know:\n-Product: Web-based POS for multi-branch retail SMEs.\n-Team: 2 Full-stack engineers (TypeScript, PostgreSQL, IndexedDB).\n-Resources: Unstable store internet, low-spec tablet hardware.\n-Key Risks: Sync conflicts, double-billing, local storage quota.",
+                    reasoning: "The goal is a resilient, zero-data-loss architecture. By locking in the sync conflict resolution model upfront and asking you to defend each architectural trade-off, the output will be production-grade.",
+                    stop: "Only stop when:\n-A complete data schema and CRDT/queue sync flow are defined.\n-Every failure mode links to a concrete recovery mechanism.\n-Blueprint ends with a Production Readiness Checklist.",
+                    output: "Present as a modular system specification. For each component:\n-Action: Component & schema specification.\n-Owner: Frontend State, Sync Worker, or Backend API.\n-Risk: Sync conflict, latency, or storage overflow.\n-Rationale + Output: architectural defense, SQL/TS interface.",
+                    insight: "Preset Engineering ini menekankan ketahanan sinkronisasi data (offline-first) di atas kompleksitas microservice yang tidak perlu."
+                },
+                id: {
+                    rawIdea: "Rancang arsitektur aplikasi web kasir (POS) multi-cabang yang tahan koneksi internet tidak stabil (offline-first) beserta skema sinkronisasi databasenya.",
+                    role: "Bertindaklah sebagai Principal Distributed Systems Architect dengan keahlian mendalam pada aplikasi web offline-first. Prioritaskan konsistensi data dan ketahanan gangguan di atas kerumitan microservice.",
+                    task: "Rancang arsitektur sistem kasir (POS) multi-cabang offline-first beserta protokol sinkronisasinya. Validasi skenario bentrok data (conflict resolution), dan akhiri dengan cetak biru teknis siap implementasi.",
+                    context: "Berikut konteks yang diketahui:\n-Product: Web App POS untuk ritel UMKM multi-cabang.\n-Team: 2 Full-stack Engineer (TypeScript, PostgreSQL, IndexedDB).\n-Resources: Koneksi internet toko sering putus, perangkat tablet spek rendah.\n-Key Risks: Konflik sinkronisasi stok, transaksi ganda, batas penyimpanan lokal.",
+                    reasoning: "Tujuannya adalah arsitektur tangguh tanpa kehilangan data transaksi. Dengan mengunci mekanisme resolusi konflik sejak awal dan menuntut alasan teknis di setiap komponen, hasilnya siap diterapkan di produksi.",
+                    stop: "Hanya berhenti ketika:\n-Skema database dan alur antrean sinkronisasi (sync queue) terjabarkan lengkap.\n-Setiap skenario gagal terhubung dengan mekanisme pemulihannya.\n-Dokumen ditutup dengan Production Readiness Gate.",
+                    output: "Sajikan sebagai spesifikasi teknis modular. Untuk setiap modul:\n-Action: Spesifikasi komponen & struktur tabel.\n-Owner: Frontend LocalDB, Sync Worker, atau Backend API.\n-Risk: Konflik stok, latensi, atau kuota memori.\n-Rationale + Output: alasan arsitektural dan skema kode/SQL.",
+                    insight: "Preset Arsitektur Sistem ini mengunci ketahanan transaksi offline dan resolusi konflik data sebagai prioritas utama."
+                }
+            },
+            research: {
+                domain: 'research',
+                en: {
+                    rawIdea: "Design a rigorous empirical methodology and statistical validation framework to evaluate the impact of AI coding assistants on junior developer code quality.",
+                    role: "Act as a senior quantitative research methodologist with deep expertise in software engineering empiricism. Prioritize internal validity and bias control over flashy headline metrics.",
+                    task: "Design a controlled longitudinal study measuring how AI coding assistants affect defect density and maintainability. Validate confounding variables, end with a peer-review-ready study protocol.",
+                    context: "Here's what I know:\n-Product: Empirical study on junior developers (0–2 years exp).\n-Team: 2 Researchers + 40 engineering study participants.\n-Resources: 8-week observation window, Git telemetry & SonarQube.\n-Key Risks: Hawthorne effect, task difficulty variance, survivor bias.",
+                    reasoning: "The goal is a defensible, publication-grade research design. By locking in identification strategy upfront and defending each statistical control, the findings will withstand rigorous peer review.",
+                    stop: "Only stop when:\n-A complete 4-phase experimental protocol with power analysis is specified.\n-Every methodological step links to the bias risk it mitigates.\n-Protocol ends with a Statistical Falsification Gate.",
+                    output: "Present as an experimental research protocol. For each phase:\n-Action: Specific measurement or sampling procedure.\n-Owner: Lead Methodologist, Data Engineer, or Code Reviewer.\n-Risk: Selection bias, Hawthorne effect, or measurement noise.\n-Rationale + Output: statistical justification, metric formula.",
+                    insight: "Preset Riset Kuantitatif ini memprioritaskan validitas internal dan pengendalian bias statistik agar tahan uji peer-review."
+                },
+                id: {
+                    rawIdea: "Susun metodologi riset empiris dan kerangka uji statistik untuk mengukur dampak penggunaan asisten AI terhadap kualitas kode programmer junior.",
+                    role: "Bertindaklah sebagai Senior Quantitative Research Methodologist dengan keahlian mendalam di bidang rekayasa perangkat lunak empiris. Prioritaskan validitas internal dan kontrol bias di atas metrik permukaan.",
+                    task: "Rancang protokol studi longitudinal terkontrol yang mengukur dampak asisten AI terhadap kepadatan bug dan keterbacaan kode. Validasi variabel pengganggu, akhiri dengan draf protokol siap tinjauan sejawat (peer-review).",
+                    context: "Berikut konteks yang diketahui:\n-Product: Studi empiris pada developer junior (pengalaman 0–2 tahun).\n-Team: 2 Peneliti + 40 partisipan developer.\n-Resources: Durasi observasi 8 minggu, data telemetri Git & SonarQube.\n-Key Risks: Efek Hawthorne, variasi tingkat kesulitan tugas, bias seleksi.",
+                    reasoning: "Tujuannya adalah desain riset yang kokoh dan layak publikasi ilmiah. Dengan mengunci strategi identifikasi kausal sejak awal dan mempertahankan alasan tiap uji statistik, temuan riset akan tahan terhadap kritik metodologis.",
+                    stop: "Hanya berhenti ketika:\n-Protokol eksperimen 4 fase beserta perhitungan sampel dijabarkan tuntas.\n-Setiap prosedur kontrol terhubung langsung dengan risiko bias yang ditekan.\n-Protokol ditutup dengan Gerbang Falsifikasi Hipotesis.",
+                    output: "Sajikan sebagai protokol eksperimen terstruktur. Untuk setiap tahapan:\n-Action: Prosedur pengambilan sampel atau pengukuran spesifik.\n-Owner: Lead Methodologist, Data Analyst, atau Reviewer Kode.\n-Risk: Bias seleksi, efek Hawthorne, atau derau pengukuran.\n-Rationale + Output: landasan statistik dan rumus/instrumen ukur.",
+                    insight: "Preset Riset Akademik ini menekankan kontrol bias dan ketajaman metodologi kuantitatif."
+                }
+            },
+            content: {
+                domain: 'content',
+                en: {
+                    rawIdea: "Create a 30-day high-retention short-form video content system on TikTok & Reels for personal finance education targeting Gen-Z professionals.",
+                    role: "Act as a senior audience growth strategist with deep expertise in high-retention short-form storytelling. Prioritize watch-time retention and save-rate over vanity viral reach.",
+                    task: "Build a 30-day content production system for Gen-Z personal finance education. Validate the core hook archetypes, end with a shoot-ready script brief.",
+                    context: "Here's what I know:\n-Product: Practical finance & investing channel for Gen-Z (21–28).\n-Team: Solo creator + 1 freelance video editor.\n-Resources: 4 hours filming/week, zero paid ads budget.\n-Key Risks: 3-second drop-off, preachy tone, creator burnout.",
+                    reasoning: "The goal is a repeatable, high-trust content engine. By locking in hook psychology upfront and defending each narrative beat, the scripts will drive compounding organic followers.",
+                    stop: "Only stop when:\n-A 4-week content matrix with 5 episodic scripts/week is mapped.\n-Every script structure links to the retention risk it solves.\n-Plan ends with a Batch Production Quality Gate.",
+                    output: "Present as a weekly content sprint matrix. For each pillar:\n-Action: Hook, visual beat, and core takeaway.\n-Owner: Creator (On-camera) or Editor (Post-production).\n-Risk: 3-sec drop-off, low save-rate, or production fatigue.\n-Rationale + Output: psychological trigger, 60-sec script template.",
+                    insight: "Preset Content Strategy ini memprioritaskan retensi tontonan dan rasio simpan (save-rate) di atas jangkauan viral semu."
+                },
+                id: {
+                    rawIdea: "Buat sistem produksi konten video pendek 30 hari di TikTok & Reels tentang edukasi keuangan anak muda yang punya retensi tinggi dan tidak menggurui.",
+                    role: "Bertindaklah sebagai Senior Audience Growth Strategist dengan keahlian mendalam pada storytelling video pendek ber-retensi tinggi. Prioritaskan durasi tonton (watch-time) dan rasio simpan (save-rate) di atas viralitas semu.",
+                    task: "Bangun sistem produksi konten 30 hari untuk edukasi keuangan praktis bagi Gen-Z. Validasi pola kalimat pembuka (hook), dan akhiri dengan brief naskah siap rekam.",
+                    context: "Berikut konteks yang diketahui:\n-Product: Kanal edukasi finansial & investasi untuk Gen-Z (21–28 tahun).\n-Team: Solo creator + 1 editor video freelance.\n-Resources: Waktu syuting 4 jam/minggu, tanpa budget iklan berbayar.\n-Key Risks: Penonton lewat di 3 detik pertama, kesan menggurui, kelelahan produksi.",
+                    reasoning: "Tujuannya adalah mesin konten organik yang konsisten dan dipercaya audiens. Dengan mengunci psikologi hook sejak detik pertama dan mempertahankan alasan tiap alur cerita, konten akan menghasilkan pertumbuhan pengikut yang loyal.",
+                    stop: "Hanya berhenti ketika:\n-Matriks konten 4 minggu dengan 5 ide naskah/minggu tersusun lengkap.\n-Setiap elemen naskah terhubung langsung dengan risiko retensi yang diatasi.\n-Rencana ditutup dengan Gerbang Evaluasi Produksi Mingguan.",
+                    output: "Sajikan sebagai matriks sprint konten mingguan. Untuk setiap konten:\n-Action: Kalimat Hook, visual utama, dan poin solusi.\n-Owner: Creator (Syuting) atau Editor (Visual/Cutting).\n-Risk: Drop-off 3 detik awal, kesan menggurui, atau burnout.\n-Rationale + Output: pemicu psikologis dan kerangka naskah 60 detik.",
+                    insight: "Preset Strategi Konten ini mengunci psikologi retensi 3 detik pertama dan efisiensi produksi tim kecil."
+                }
+            }
+        };
+
+        // UI Bilingual Dictionary (Free from any reference to "dari gambar")
+        const UI_TEXT = {
+            id: {
+                headerSubtitle: "Rancang Master Prompt presisi dengan kerangka 6 pilar struktur anatomi",
+                btnDefaultTemplateText: "Template Standar",
+                inputCardTitle: "1. Tulis Ide atau Prompt Singkat Anda",
+                btnResetText: "Bersihkan",
+                inputCardDesc: "Masukkan satu kalimat tujuan Anda. Sistem akan memetakan peran pakar, prioritas trade-off, batasan konteks, risiko, hingga kriteria selesai secara otomatis.",
+                quickExamplesLabel: "Preset Skenario Cepat:",
+                labelOutputLang: "Bahasa Output Prompt",
+                labelDomainPreset: "Fokus Domain Keahlian",
+                btnGenerateText: "Analisis & Bangun Master Prompt",
+                legendTitle: "Diagnostik 6 Pilar Anatomi",
+                descRole: "Persona & prioritas",
+                descTask: "Misi & validasi",
+                descContext: "Fakta, tim & risiko",
+                descReasoning: "Logika & pembelaan",
+                descStop: "Syarat tuntas terukur",
+                descOutput: "Format & rincian aksi",
+                btnCopyMasterText: "Salin Prompt",
+                btnTestPromptText: "Uji Prompt",
+                editHintBadge: "Klik teks untuk edit langsung",
+                rawViewTitle: "Master Prompt Terkompilasi",
+                rawViewSubtitle: "Siap disalin dan ditempel langsung ke Claude, ChatGPT, atau Gemini"
+            },
+            en: {
+                headerSubtitle: "Architect precision Master Prompts using the 6-pillar structural framework",
+                btnDefaultTemplateText: "Default Template",
+                inputCardTitle: "1. Enter Your Short Idea or Prompt",
+                btnResetText: "Clear",
+                inputCardDesc: "Write your goal in a single sentence. The architect maps out the expert role, priority trade-offs, context constraints, risks, and completion gates.",
+                quickExamplesLabel: "Quick Scenario Presets:",
+                labelOutputLang: "Prompt Output Language",
+                labelDomainPreset: "Domain Expertise Focus",
+                btnGenerateText: "Analyze & Build Master Prompt",
+                legendTitle: "6-Pillar Anatomy Diagnostics",
+                descRole: "Persona & priority",
+                descTask: "Mission & validation",
+                descContext: "Facts, team & risks",
+                descReasoning: "Strategic logic",
+                descStop: "Measurable gate",
+                descOutput: "Format & breakdown",
+                btnCopyMasterText: "Copy Prompt",
+                btnTestPromptText: "Test Prompt",
+                editHintBadge: "Click any text to edit inline",
+                rawViewTitle: "Compiled Master Prompt",
+                rawViewSubtitle: "Ready to paste directly into Claude, ChatGPT, or Gemini"
+            }
+        };
+
+        // ============================================================================
+        // INITIALIZATION
+        // ============================================================================
+        window.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+            initApiStorageState();
+            // Load the canonical English SaaS GTM example on startup
+            document.getElementById('outputLangSelect').value = 'English';
+            applyAnatomyData(DEFAULT_SAAS_ANATOMY_EN);
+        });
+
+        // ============================================================================
+        // BYOK API KEY MANAGEMENT (LOCALSTORAGE)
+        // ============================================================================
+        function initApiStorageState() {
+            try {
+                const savedKey = localStorage.getItem(STORAGE_KEY_API) || '';
+                const savedModel = localStorage.getItem(STORAGE_KEY_MODEL) || 'gemini-2.5-flash';
+
+                const keyInput = document.getElementById('apiKeyInput');
+                const modelSelect = document.getElementById('geminiModelSelect');
+
+                if (keyInput && savedKey) keyInput.value = savedKey;
+                if (modelSelect && savedModel) modelSelect.value = savedModel;
+
+                updateEngineStatusBadge();
+            } catch (e) {
+                console.warn('LocalStorage access restricted:', e);
+            }
+        }
+
+        function getActiveApiKey() {
+            try {
+                const forceHeuristic = document.getElementById('forceHeuristicCheckbox')?.checked;
+                if (forceHeuristic) return '';
+                return (localStorage.getItem(STORAGE_KEY_API) || '').trim();
+            } catch (e) {
+                return '';
+            }
+        }
+
+        function getSelectedGeminiModel() {
+            try {
+                return localStorage.getItem(STORAGE_KEY_MODEL) || document.getElementById('geminiModelSelect')?.value || 'gemini-2.5-flash';
+            } catch (e) {
+                return 'gemini-2.5-flash';
+            }
+        }
+
+        function toggleApiPanel() {
+            const panel = document.getElementById('apiKeyCollapsible');
+            panel.classList.toggle('hidden');
+        }
+
+        function toggleApiKeyVisibility() {
+            const input = document.getElementById('apiKeyInput');
+            const icon = document.getElementById('eyeIcon');
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.setAttribute('data-lucide', 'eye-off');
+            } else {
+                input.type = 'password';
+                icon.setAttribute('data-lucide', 'eye');
+            }
+            lucide.createIcons();
+        }
+
+        function saveModelPreference() {
+            const model = document.getElementById('geminiModelSelect').value;
+            try {
+                localStorage.setItem(STORAGE_KEY_MODEL, model);
+                updateEngineStatusBadge();
+                showToast(`Model aktif disimpan: ${model}`, 'info');
+            } catch (e) {}
+        }
+
+        function saveApiKeyToStorage() {
+            const rawKey = document.getElementById('apiKeyInput').value.trim();
+            const model = document.getElementById('geminiModelSelect').value;
+            const feedback = document.getElementById('apiTestFeedback');
+
+            if (!rawKey) {
+                showToast('Masukkan Gemini API Key terlebih dahulu sebelum menyimpan.', 'error');
+                return;
+            }
+
+            try {
+                localStorage.setItem(STORAGE_KEY_API, rawKey);
+                localStorage.setItem(STORAGE_KEY_MODEL, model);
+                document.getElementById('forceHeuristicCheckbox').checked = false;
+                updateEngineStatusBadge();
+                feedback.innerHTML = `<span class="text-emerald-400">✓ Tersimpan di localStorage browser (${model})</span>`;
+                showToast('API Key berhasil disimpan di LocalStorage browser Anda!', 'success');
+            } catch (e) {
+                showToast('Gagal menyimpan ke LocalStorage browser.', 'error');
+            }
+        }
+
+        function clearApiKeyFromStorage() {
+            try {
+                localStorage.removeItem(STORAGE_KEY_API);
+                document.getElementById('apiKeyInput').value = '';
+                document.getElementById('apiTestFeedback').innerHTML = `<span class="text-amber-400">API Key dihapus. Beralih ke Smart Heuristic Engine.</span>`;
+                updateEngineStatusBadge();
+                showToast('API Key dihapus dari LocalStorage. Mode Heuristik aktif.', 'info');
+            } catch (e) {}
+        }
+
+        function updateEngineStatusBadge() {
+            const key = getActiveApiKey();
+            const model = getSelectedGeminiModel();
+            const dot = document.getElementById('apiStatusDot');
+            const text = document.getElementById('apiStatusText');
+            const footnote = document.getElementById('engineFootnote');
+            const simNotice = document.getElementById('simEngineNotice');
+
+            if (key) {
+                dot.className = 'w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]';
+                text.textContent = currentUILang === 'id' ? 'AI Terhubung' : 'AI Connected';
+                if (footnote) footnote.textContent = `Mesin aktif: Google Gemini API (${model})`;
+                if (simNotice) simNotice.textContent = `Dieksekusi secara live menggunakan ${model}`;
+            } else {
+                dot.className = 'w-2 h-2 rounded-full bg-amber-400';
+                text.textContent = currentUILang === 'id' ? 'Mode Heuristik' : 'Heuristic Mode';
+                if (footnote) footnote.textContent = currentUILang === 'id'
+                    ? 'Mesin aktif: Smart Heuristic (Tanpa API Key / Aman & Gratis)'
+                    : 'Active engine: Smart Heuristic (No API Key required)';
+                if (simNotice) simNotice.textContent = currentUILang === 'id'
+                    ? 'Mode Simulasi Heuristik Lokal — Masukkan Gemini API Key di bagian atas untuk respons LLM penuh.'
+                    : 'Local Heuristic Simulation — Add your Gemini API Key in the top bar for live LLM execution.';
+            }
+        }
+
+        async function testGeminiConnection() {
+            const inputKey = document.getElementById('apiKeyInput').value.trim();
+            const model = document.getElementById('geminiModelSelect').value;
+            const feedback = document.getElementById('apiTestFeedback');
+            const btn = document.getElementById('btnTestConn');
+
+            if (!inputKey) {
+                feedback.innerHTML = `<span class="text-rose-400">✕ Kolom API Key masih kosong.</span>`;
+                showToast('Masukkan API Key terlebih dahulu untuk menguji koneksi.', 'error');
+                return;
+            }
+
+            btn.disabled = true;
+            feedback.innerHTML = `<span class="text-claude-coral">Menguji koneksi ke ${model}...</span>`;
+
+            try {
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(inputKey)}`;
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ role: 'user', parts: [{ text: 'Reply with OK' }] }],
+                        generationConfig: { maxOutputTokens: 10 }
+                    })
+                });
+
+                if (!response.ok) {
+                    const errData = await response.json().catch(() => ({}));
+                    throw new Error(errData?.error?.message || `HTTP ${response.status}`);
+                }
+
+                // Auto-save valid key
+                localStorage.setItem(STORAGE_KEY_API, inputKey);
+                localStorage.setItem(STORAGE_KEY_MODEL, model);
+                updateEngineStatusBadge();
+
+                feedback.innerHTML = `<span class="text-emerald-400">✓ Koneksi sukses! Key valid & disimpan (${model}).</span>`;
+                showToast('Koneksi Gemini API berhasil! Key telah disimpan.', 'success');
+            } catch (err) {
+                feedback.innerHTML = `<span class="text-rose-400">✕ Gagal: ${err.message}</span>`;
+                showToast(`Tes koneksi gagal: ${err.message}`, 'error');
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        // ============================================================================
+        // SMART CLIENT-SIDE HEURISTIC ENGINE (FALLBACK WHEN NO API KEY IS PROVIDED)
+        // ============================================================================
+        function buildHeuristicMasterPrompt(rawIdea, targetLang, domainChoice) {
+            const cleanIdea = rawIdea.trim().replace(/\.$/, '');
+            const lower = cleanIdea.toLowerCase();
+            const isId = targetLang === 'Bahasa Indonesia';
+
+            // Auto-detect domain if set to 'auto'
+            let domain = domainChoice;
+            if (domain === 'auto') {
+                if (/(kode|coding|web|aplikasi|database|backend|frontend|api|pos|sistem|architecture|software|app|react|python|sql)/i.test(lower)) {
+                    domain = 'engineering';
+                } else if (/(riset|penelitian|analisis|data|statistik|jurnal|skripsi|tesis|empiris|hipotesis|research|study|quantitative|regression)/i.test(lower)) {
+                    domain = 'research';
+                } else if (/(konten|tiktok|reels|instagram|youtube|copywriting|artikel|blog|viral|script|naskah|content|brand)/i.test(lower)) {
+                    domain = 'content';
+                } else if (/(ux|ui|fitur|prd|user|pengguna|produk|roadmap|product)/i.test(lower)) {
+                    domain = 'product';
+                } else {
+                    domain = 'saas';
+                }
+            }
+
+            // Extract timeframe if mentioned (e.g., "90 hari", "30 days", "12 minggu")
+            const timeMatch = cleanIdea.match(/(\d+\s*(?:hari|minggu|bulan|day|days|week|weeks|month|months))/i);
+            const timeframe = timeMatch ? timeMatch[1] : (isId ? '90 hari' : '90-day');
+
+            const blueprints = {
+                saas: {
+                    id: {
+                        role: "Bertindaklah sebagai Senior Go-To-Market Strategist dengan keahlian mendalam dalam meluncurkan produk dan bisnis tahap awal. Prioritaskan kecepatan traksi pasar dan validasi nyata di atas kesempurnaan konsep di atas kertas.",
+                        task: `Susun rencana eksekusi strategis (${timeframe}) untuk: ${cleanIdea}. Validasi proposisi nilai utama (core messaging), dan akhiri dengan dokumen brief siap eksekusi.`,
+                        context: `Berikut konteks yang diketahui:\n-Product: Solusi/inisiatif fokus pada "${cleanIdea}".\n-Team: Tim inti ramping (Founder/Lead + Eksekutor Operasional).\n-Resources: Anggaran efisien (lean budget), mengutamakan kanal organik & eksperimen cepat.\n-Key Risks: Adopsi awal lambat, retensi pengguna rendah, positioning kurang tajam.`,
+                        reasoning: "Tujuannya adalah strategi yang tajam dan langsung bisa dijalankan. Dengan mengunci kejelasan profil target (ICP) sejak awal dan meminta Anda mempertahankan alasan di balik setiap langkah, hasilnya akan benar-benar aplikatif dan berstandar founder.",
+                        stop: "Hanya berhenti ketika:\n-Tersedia roadmap mingguan terstruktur dengan 3–4 aksi nyata per minggu.\n-Setiap aksi terhubung langsung dengan risiko utama yang diselesaikannya.\n-Rencana ditutup dengan gerbang keputusan akhir (Final Decision Gate).",
+                        output: "Sajikan sebagai rencana sprint mingguan. Untuk setiap aksi:\n-Action: Tugas spesifik yang harus diselesaikan.\n-Owner: Founder, Growth Lead, atau Product Specialist.\n-Risk: Adopsi, Retensi, atau Positioning.\n-Rationale + Output: alasan logis dan wujud hasil kerja (deliverable).",
+                        insight: "Disusun menggunakan Smart Heuristic Engine (Domain: Strategi & GTM). Menambahkan trade-off kecepatan traksi serta pemetaan risiko adopsi & retensi."
+                    },
+                    en: {
+                        role: "Act as a senior go-to-market strategist with deep expertise launching early-stage products and ventures. Prioritize traction speed and validated learning over brand perfection.",
+                        task: `Build a ${timeframe} execution plan for: ${cleanIdea}. Validate the core messaging and assumptions, end with a launch-ready brief.`,
+                        context: `Here's what I know:\n-Product: Core initiative centered on "${cleanIdea}".\n-Team: Lean 2–3 person core execution team (Founder + Growth/Ops).\n-Resources: Lean budget, early beta cohort, high-velocity execution.\n-Key Risks: Initial adoption, user retention, market positioning.`,
+                        reasoning: "The goal is a crisp, launch-ready strategy. By locking in ICP clarity upfront and asking you to defend each step, the output will be truly actionable and founder-grade.",
+                        stop: "Only stop when:\n-A structured weekly roadmap with 3–4 concrete actions/week is complete.\n-Every action links directly to the specific risk it addresses.\n-Plan ends with a final Launch Decision Gate.",
+                        output: "Present as a weekly sprint plan. For each action:\n-Action: The specific task to complete.\n-Owner: Founder, Growth lead, or Product Designer.\n-Risk: Adoption, Retention, or Positioning.\n-Rationale + Output: strategic reasoning, concrete deliverable.",
+                        insight: "Constructed via Smart Heuristic Engine (Domain: SaaS & GTM). Injected priority trade-offs and measurable completion gates."
+                    }
+                },
+                engineering: {
+                    id: {
+                        role: "Bertindaklah sebagai Principal Software Architect dengan keahlian mendalam merancang sistem produksi yang tangguh dan mudah dipelihara. Prioritaskan keandalan data dan kesederhanaan modular di atas kerumitan arsitektur yang berlebihan (over-engineering).",
+                        task: `Rancang cetak biru teknis dan skema implementasi untuk: ${cleanIdea}. Validasi skenario kegagalan (edge cases), dan akhiri dengan spesifikasi teknis siap bangun.`,
+                        context: `Berikut konteks yang diketahui:\n-Product: Sistem/aplikasi "${cleanIdea}".\n-Team: Tim developer ramping yang membutuhkan arsitektur bersih & terdokumentasi.\n-Resources: Infrastruktur cloud efisien, target rilis iteratif tanpa downtime.\n-Key Risks: Bottleneck performa, inkonsistensi data, dan utang teknis (tech debt).`,
+                        reasoning: "Tujuannya adalah arsitektur kelas produksi yang bersih dan terukur. Dengan mengunci kontrak data sejak awal dan meminta Anda mempertahankan setiap keputusan teknis, implementasi akan bebas dari bongkar-pasang kode.",
+                        stop: "Hanya berhenti ketika:\n-Skema data, alur API/komponen, dan penanganan error dijabarkan lengkap.\n-Setiap keputusan arsitektur terhubung dengan risiko teknis yang dimitigasinya.\n-Dokumen ditutup dengan Production Readiness Gate.",
+                        output: "Sajikan sebagai spesifikasi teknis modular. Untuk setiap komponen:\n-Action: Spesifikasi modul, skema, atau alur logika.\n-Owner: Backend, Frontend/Client, atau DevOps/Database.\n-Risk: Performa, Konsistensi Data, atau Keamanan.\n-Rationale + Output: alasan teknis dan contoh skema/antarmuka kode.",
+                        insight: "Disusun menggunakan Smart Heuristic Engine (Domain: Software Engineering). Mengunci keandalan arsitektur dan mitigasi tech-debt."
+                    },
+                    en: {
+                        role: "Act as a principal software architect with deep expertise building resilient production systems. Prioritize reliability, data integrity, and modular simplicity over premature over-engineering.",
+                        task: `Architect a complete technical blueprint and implementation plan for: ${cleanIdea}. Validate critical failure modes and edge cases, end with a build-ready specification.`,
+                        context: `Here's what I know:\n-Product: Technical system focused on "${cleanIdea}".\n-Team: Lean engineering squad prioritizing clean, maintainable code.\n-Resources: Pragmatic cloud infrastructure, strict latency & reliability targets.\n-Key Risks: Data inconsistency, scaling bottlenecks, security & tech debt.`,
+                        reasoning: "The goal is a crisp, production-grade architecture. By locking in data contracts upfront and asking you to defend each architectural trade-off, the output will be immediately implementable.",
+                        stop: "Only stop when:\n-Complete data models, component boundaries, and failure recovery flows are defined.\n-Every technical decision links to the operational risk it mitigates.\n-Specification ends with a Production Readiness Gate.",
+                        output: "Present as a modular engineering specification. For each module:\n-Action: Specific architectural task or schema design.\n-Owner: Backend API, Frontend State, or Data/Infra layer.\n-Risk: Latency, Data Integrity, or Security.\n-Rationale + Output: engineering trade-off defense, interface/schema artifact.",
+                        insight: "Constructed via Smart Heuristic Engine (Domain: Software Engineering). Enforced data contract clarity and failure-mode mapping."
+                    }
+                },
+                research: {
+                    id: {
+                        role: "Bertindaklah sebagai Senior Research Methodologist & Principal Analyst dengan keahlian mendalam pada desain studi empiris dan analisis kuantitatif. Prioritaskan ketajaman metodologi dan validitas kausal di atas asumsi deskriptif semata.",
+                        task: `Susun kerangka metodologi riset dan rancangan analisis komprehensif untuk: ${cleanIdea}. Validasi potensi bias dan variabel pengganggu, akhiri dengan protokol riset siap uji.`,
+                        context: `Berikut konteks yang diketahui:\n-Product: Fokus studi/analisis pada "${cleanIdea}".\n-Team: Peneliti utama dan analis data.\n-Resources: Keterbatasan waktu pengumpulan data & tuntutan akurasi tinggi.\n-Key Risks: Bias seleksi sampel, variabel perancu (confounding), kesimpulan prematur.`,
+                        reasoning: "Tujuannya adalah kerangka analisis yang kokoh dan tahan uji kritis. Dengan mengunci hipotesis serta strategi identifikasi di awal dan mempertahankan alasan tiap metode, temuan akan memiliki kredibilitas akademik maupun praktis yang tinggi.",
+                        stop: "Hanya berhenti ketika:\n-Tahapan metodologi, variabel ukur, dan teknik analisis terjabarkan secara sistematis.\n-Setiap langkah pengujian terhubung langsung dengan risiko bias yang dikendalikannya.\n-Protokol ditutup dengan Gerbang Validasi & Falsifikasi Temuan.",
+                        output: "Sajikan sebagai protokol riset terstruktur. Untuk setiap tahapan:\n-Action: Prosedur pengumpulan data atau pengujian hipotesis.\n-Owner: Lead Researcher, Data Analyst, atau Domain Reviewer.\n-Risk: Bias Sampel, Validitas Internal, atau Derau Pengukuran.\n-Rationale + Output: justifikasi metodologis dan instrumen/tabel metrik.",
+                        insight: "Disusun menggunakan Smart Heuristic Engine (Domain: Riset & Analisis). Menekankan kontrol bias dan ketajaman metodologis."
+                    },
+                    en: {
+                        role: "Act as a senior research methodologist and principal analyst with deep expertise in empirical design and rigorous synthesis. Prioritize internal validity and bias control over surface-level correlation.",
+                        task: `Design a rigorous analytical framework and methodology for: ${cleanIdea}. Validate key hypotheses and confounding variables, end with a decision-ready research protocol.`,
+                        context: `Here's what I know:\n-Product: Empirical investigation into "${cleanIdea}".\n-Team: Lead researcher + quantitative/domain analyst.\n-Resources: Finite observation window requiring high signal-to-noise ratio.\n-Key Risks: Selection bias, confounding variables, measurement noise.`,
+                        reasoning: "The goal is a defensible, publication-and-executive-grade analysis. By locking in the identification strategy upfront and asking you to defend each methodological step, the output will withstand rigorous scrutiny.",
+                        stop: "Only stop when:\n-A multi-stage methodology with explicit variables and evaluation metrics is defined.\n-Every analytical step links to the specific validity risk it mitigates.\n-Protocol ends with a Robustness & Falsification Gate.",
+                        output: "Present as a structured research protocol. For each stage:\n-Action: Specific analytical or sampling procedure.\n-Owner: Lead Researcher, Data Scientist, or Domain Auditor.\n-Risk: Selection Bias, Confounding, or Measurement Error.\n-Rationale + Output: methodological defense, concrete metric/model specification.",
+                        insight: "Constructed via Smart Heuristic Engine (Domain: Research & Analysis). Locked in validity controls and falsification criteria."
+                    }
+                },
+                product: {
+                    id: {
+                        role: "Bertindaklah sebagai Staff Product Manager & UX Strategist dengan keahlian mendalam dalam menemukan product-market fit. Prioritaskan penyelesaian masalah inti pengguna (time-to-value) di atas penambahan fitur kosmetik.",
+                        task: `Susun dokumen spesifikasi produk (PRD) dan peta jalan validasi untuk: ${cleanIdea}. Validasi alur pengguna utama, dan akhiri dengan brief rilis MVP yang tajam.`,
+                        context: `Berikut konteks yang diketahui:\n-Product: Inisiatif produk "${cleanIdea}".\n-Team: Product Manager, UI/UX Designer, dan Engineer.\n-Resources: Siklus sprint ketat, fokus pada dampak maksimum dengan usaha terukur.\n-Key Risks: Fitur jarang dipakai (low engagement), friksi onboarding, scope creep.`,
+                        reasoning: "Tujuannya adalah spesifikasi produk yang fokus dan bebas fitur mubazir. Dengan mengunci masalah utama pengguna di awal dan mempertahankan alasan setiap fitur, tim dapat merilis produk yang benar-benar dicintai pengguna.",
+                        stop: "Hanya berhenti ketika:\n-Alur pengguna, cakupan MVP, dan metrik keberhasilan terjabarkan tuntas.\n-Setiap fitur terhubung langsung dengan risiko produk yang dipecahkannya.\n-Dokumen ditutup dengan Go/No-Go Release Gate.",
+                        output: "Sajikan sebagai rencana sprint produk. Untuk setiap item:\n-Action: Spesifikasi alur atau fitur inti yang dibangun.\n-Owner: Product Manager, UX Designer, atau Engineer.\n-Risk: Friksi Onboarding, Retensi Rendah, atau Scope Creep.\n-Rationale + Output: alasan produk dan kriteria penerimaan (acceptance criteria).",
+                        insight: "Disusun menggunakan Smart Heuristic Engine (Domain: Product & UX). Mengutamakan time-to-value dan pencegahan scope creep."
+                    },
+                    en: {
+                        role: "Act as a staff product manager and UX strategist with deep expertise in zero-to-one product discovery. Prioritize user time-to-value and core loop retention over feature bloat.",
+                        task: `Build a crisp Product Requirements Document (PRD) and validation roadmap for: ${cleanIdea}. Validate the core user journey, end with an MVP release brief.`,
+                        context: `Here's what I know:\n-Product: Product initiative focused on "${cleanIdea}".\n-Team: Cross-functional trio (PM, Designer, Lead Engineer).\n-Resources: Tight sprint cycles requiring ruthless scope prioritization.\n-Key Risks: Onboarding friction, low core-loop retention, scope creep.`,
+                        reasoning: "The goal is a razor-sharp, execution-ready product strategy. By locking in user pain-point clarity upfront and asking you to defend each scope decision, the output will prevent wasted engineering cycles.",
+                        stop: "Only stop when:\n-Core user stories, MVP scope boundaries, and success metrics are defined.\n-Every feature links directly to the user risk it resolves.\n-Plan ends with a final MVP Launch Readiness Gate.",
+                        output: "Present as a prioritized product sprint plan. For each item:\n-Action: Specific user flow or capability to ship.\n-Owner: Product Lead, UX Designer, or Engineering.\n-Risk: Activation drop-off, Retention, or Scope Creep.\n-Rationale + Output: user-value defense, testable acceptance criteria.",
+                        insight: "Constructed via Smart Heuristic Engine (Domain: Product Management). Focused on user time-to-value and anti-scope-creep gates."
+                    }
+                },
+                content: {
+                    id: {
+                        role: "Bertindaklah sebagai Senior Content Strategist & Direct-Response Copywriter dengan keahlian mendalam membangun audiens organik dan konversi tinggi. Prioritaskan retensi perhatian dan kejelasan pesan di atas gaya bahasa klise.",
+                        task: `Bangun sistem strategi konten dan kerangka produksi untuk: ${cleanIdea}. Validasi sudut pandang pesan utama (hook & angle), dan akhiri dengan panduan produksi siap eksekusi.`,
+                        context: `Berikut konteks yang diketahui:\n-Product: Program konten/komunikasi "${cleanIdea}".\n-Team: Kreator/Penulis utama dan tim produksi ramping.\n-Resources: Waktu produksi terbatas, mengandalkan distribusi organik yang konsisten.\n-Key Risks: Audiens lewat di 3 detik pertama, pesan membosankan, kelelahan ide.`,
+                        reasoning: "Tujuannya adalah mesin konten yang memikat dan menghasilkan aksi nyata. Dengan mengunci psikologi audiens sejak kalimat pembuka dan mempertahankan alasan tiap struktur narasi, setiap konten akan memiliki daya tarik kuat.",
+                        stop: "Hanya berhenti ketika:\n-Kalender distribusi, pilar topik, dan struktur hook/naskah tersusun lengkap.\n-Setiap format konten terhubung dengan risiko atensi/konversi yang diatasinya.\n-Rencana ditutup dengan Standar Evaluasi Kualitas Konten.",
+                        output: "Sajikan sebagai matriks produksi konten mingguan. Untuk setiap bagian:\n-Action: Ide topik, kalimat Hook, dan alur pesan utama.\n-Owner: Content Strategist, Copywriter, atau Visual Editor.\n-Risk: Drop-off Awal, Konversi Rendah, atau Inkonsistensi.\n-Rationale + Output: alasan psikologis dan draf kerangka naskah.",
+                        insight: "Disusun menggunakan Smart Heuristic Engine (Domain: Content & Copywriting). Mengunci psikologi hook dan efisiensi produksi."
+                    },
+                    en: {
+                        role: "Act as a senior content strategist and conversion copywriter with deep expertise in high-retention storytelling. Prioritize audience retention and message clarity over generic viral tropes.",
+                        task: `Build a repeatable content strategy and production playbook for: ${cleanIdea}. Validate the core hook archetypes and narrative angles, end with a production-ready brief.`,
+                        context: `Here's what I know:\n-Product: Content & messaging engine for "${cleanIdea}".\n-Team: Lean creator/editorial team operating on weekly batch cycles.\n-Resources: Organic-first distribution, limited production bandwidth.\n-Key Risks: 3-second attention drop-off, undifferentiated voice, creator burnout.`,
+                        reasoning: "The goal is a high-converting, sustainable content system. By locking in audience psychology upfront and asking you to defend each narrative beat, the output will drive compounding engagement.",
+                        stop: "Only stop when:\n-A structured weekly content matrix with 4–5 repeatable formats is complete.\n-Every content piece links to the specific attention or trust risk it solves.\n-Playbook ends with a Editorial Quality Gate.",
+                        output: "Present as a weekly editorial sprint plan. For each piece:\n-Action: Specific hook, core narrative beat, and CTA.\n-Owner: Strategist, Writer/Creator, or Editor.\n-Risk: Early drop-off, Low conversion, or Burnout.\n-Rationale + Output: psychological rationale, ready-to-use script outline.",
+                        insight: "Constructed via Smart Heuristic Engine (Domain: Content Strategy). Prioritized hook retention and batch production sustainability."
+                    }
+                }
+            };
+
+            const selectedPack = blueprints[domain] || blueprints.saas;
+            return isId ? selectedPack.id : selectedPack.en;
+        }
+
+        // ============================================================================
+        // GENERATE 6-PART MASTER PROMPT (DUAL ENGINE: GEMINI API OR HEURISTIC)
+        // ============================================================================
+        async function generateMasterPrompt() {
+            const rawIdea = document.getElementById('rawPromptInput').value.trim();
+            if (!rawIdea) {
+                showToast(
+                    currentUILang === 'id'
+                        ? 'Silakan tulis ide atau prompt singkat Anda terlebih dahulu!'
+                        : 'Please enter a short prompt or idea first!',
+                    'error'
+                );
+                document.getElementById('rawPromptInput').focus();
+                return;
+            }
+
+            const targetLang = document.getElementById('outputLangSelect').value;
+            const domainChoice = document.getElementById('domainSelect').value;
+            const activeApiKey = getActiveApiKey();
+            const activeModel = getSelectedGeminiModel();
+
+            const btn = document.getElementById('btnGenerate');
+            const overlay = document.getElementById('posterLoadingOverlay');
+            btn.disabled = true;
+            btn.classList.add('opacity-75', 'cursor-not-allowed');
+            overlay.classList.remove('hidden');
+
+            // Switch to Visual Anatomy view so user sees the result
+            if (currentTab !== 'poster') {
+                switchViewTab('poster');
+            }
+
+            // ENGINE 1: Direct Google Gemini API (if BYOK API Key is saved & active)
+            if (activeApiKey) {
+                const systemInstruction = `You are an elite Prompt Architect specializing in "The Anatomy of a Claude prompt" 6-pillar framework.
+Transform the user's short prompt idea into a high-leverage, founder-grade Master Prompt strictly following the exact structure, tone, and conciseness of these 6 sections:
+
+1. "role":
+   - Pattern: "Act as a senior [specific expert role] with deep expertise [specific domain]. Prioritize [Primary Value A] over [Secondary Value B]."
+   - If Bahasa Indonesia: "Bertindaklah sebagai [peran ahli spesifik] dengan keahlian mendalam dalam [domain spesifik]. Prioritaskan [Nilai Utama A] di atas [Nilai Sekunder B]."
+
+2. "task":
+   - Pattern: 2 crisp sentences stating what concrete plan/system to build, what core element to validate, and what final launch/execution-ready artifact to end with.
+
+3. "context":
+   - Must start with "Here's what I know:" (if English) or "Berikut konteks yang diketahui:" (if Bahasa Indonesia), followed by 4 concise hyphenated lines:
+     -Product: ...
+     -Team: ...
+     -Resources: ...
+     -Key Risks: ...
+   - Infer realistic, specific constraints if the user's short prompt didn't explicitly state them.
+
+4. "reasoning":
+   - Pattern: 2 crisp sentences ("The goal is a crisp, [adjective] strategy/architecture. By locking in [key clarity] upfront and asking you to defend each step, the output will be truly actionable and [expert]-grade.").
+
+5. "stop":
+   - Must start with "Only stop when:" (if English) or "Hanya berhenti ketika:" (if Bahasa Indonesia), followed by 3 measurable completion criteria lines starting with hyphens (-), ending with a final Decision/Quality Gate.
+
+6. "output":
+   - Must start with "Present as a [specific format]. For each [action/item]:" (or Indonesian equivalent), followed by 4 hyphenated lines:
+     -Action: ...
+     -Owner: ...
+     -Risk: ...
+     -Rationale + Output: ...
+
+7. "insight":
+   - 1 concise sentence explaining the key trade-off and risk gates injected into this prompt.
+
+Write ALL output values in ${targetLang}.`;
+
+                const payload = {
+                    contents: [{
+                        role: "user",
+                        parts: [{ text: `User's short prompt idea: "${rawIdea}"\nTarget Output Language: ${targetLang}\nDomain Preference: ${domainChoice}` }]
+                    }],
+                    systemInstruction: {
+                        parts: [{ text: systemInstruction }]
+                    },
+                    generationConfig: {
+                        responseMimeType: "application/json",
+                        responseSchema: {
+                            type: "OBJECT",
+                            properties: {
+                                role: { type: "STRING" },
+                                task: { type: "STRING" },
+                                context: { type: "STRING" },
+                                reasoning: { type: "STRING" },
+                                stop: { type: "STRING" },
+                                output: { type: "STRING" },
+                                insight: { type: "STRING" }
+                            },
+                            required: ["role", "task", "context", "reasoning", "stop", "output", "insight"]
+                        }
+                    }
+                };
+
+                try {
+                    const url = `https://generativelanguage.googleapis.com/v1beta/models/${activeModel}:generateContent?key=${encodeURIComponent(activeApiKey)}`;
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        const errJson = await response.json().catch(() => ({}));
+                        throw new Error(errJson?.error?.message || `HTTP ${response.status}`);
+                    }
+
+                    const result = await response.json();
+                    const jsonText = result?.candidates?.[0]?.content?.parts?.[0]?.text;
+                    const parsed = JSON.parse(jsonText);
+
+                    applyAnatomyData({
+                        rawIdea,
+                        role: parsed.role,
+                        task: parsed.task,
+                        context: parsed.context,
+                        reasoning: parsed.reasoning,
+                        stop: parsed.stop,
+                        output: parsed.output,
+                        insight: parsed.insight
+                    });
+
+                    showToast(
+                        currentUILang === 'id'
+                            ? `Master Prompt berhasil dirakit dengan Gemini AI (${activeModel})!`
+                            : `Master Prompt built via Gemini AI (${activeModel})!`,
+                        'success'
+                    );
+                } catch (err) {
+                    console.warn("Gemini API error, falling back to Smart Heuristic Engine:", err);
+                    const fallbackData = buildHeuristicMasterPrompt(rawIdea, targetLang, domainChoice);
+                    applyAnatomyData({ rawIdea, ...fallbackData });
+                    showToast(
+                        `API Error (${err.message}). Menggunakan Smart Heuristic Engine sebagai fallback.`,
+                        'info'
+                    );
+                } finally {
+                    btn.disabled = false;
+                    btn.classList.remove('opacity-75', 'cursor-not-allowed');
+                    overlay.classList.add('hidden');
+                }
+                return;
+            }
+
+            // ENGINE 2: Smart Client-Side Heuristic Engine (No API Key needed)
+            setTimeout(() => {
+                const heuristicResult = buildHeuristicMasterPrompt(rawIdea, targetLang, domainChoice);
+                applyAnatomyData({
+                    rawIdea,
+                    ...heuristicResult
+                });
+                btn.disabled = false;
+                btn.classList.remove('opacity-75', 'cursor-not-allowed');
+                overlay.classList.add('hidden');
+
+                showToast(
+                    currentUILang === 'id'
+                        ? 'Master Prompt berhasil dirakit (Smart Heuristic Engine)!'
+                        : 'Master Prompt constructed (Smart Heuristic Engine)!',
+                    'success'
+                );
+            }, 450);
+        }
+
+        // ============================================================================
+        // REFINE A SINGLE SECTION (GEMINI API OR LOCAL ENHANCEMENT)
+        // ============================================================================
+        async function refineSingleSection(sectionKey) {
+            const fieldMap = {
+                role: 'fieldRole',
+                task: 'fieldTask',
+                context: 'fieldContext',
+                reasoning: 'fieldReasoning',
+                stop: 'fieldStop',
+                output: 'fieldOutput'
+            };
+
+            const textarea = document.getElementById(fieldMap[sectionKey]);
+            if (!textarea) return;
+
+            const currentVal = textarea.value.trim();
+            const rawIdea = document.getElementById('rawPromptInput').value.trim();
+            const targetLang = document.getElementById('outputLangSelect').value;
+            const activeApiKey = getActiveApiKey();
+            const activeModel = getSelectedGeminiModel();
+
+            textarea.classList.add('ai-loading-pulse');
+
+            if (activeApiKey) {
+                showToast(`Mempertajam bagian ${sectionKey.toUpperCase()} dengan Gemini AI...`, 'info');
+                const prompt = `Sharpen and elevate ONLY the "${sectionKey.toUpperCase()}" section of this Master Prompt in ${targetLang}.
+Keep it concise, high-impact, and strictly faithful to "The Anatomy of a Claude prompt" style (3-5 lines max).
+User's core goal: "${rawIdea}"
+Current ${sectionKey} text:
+${currentVal}
+
+Return ONLY the improved text for this single section, without quotes or markdown blocks.`;
+
+                try {
+                    const url = `https://generativelanguage.googleapis.com/v1beta/models/${activeModel}:generateContent?key=${encodeURIComponent(activeApiKey)}`;
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            contents: [{ role: 'user', parts: [{ text: prompt }] }]
+                        })
+                    });
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    const data = await response.json();
+                    const improved = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+                    if (improved) {
+                        textarea.value = improved.trim();
+                        autoResizeAndSync(textarea);
+                        showToast(`Bagian ${sectionKey.toUpperCase()} berhasil dipertajam!`, 'success');
+                    }
+                } catch (e) {
+                    showToast(`Gagal menghubungi API. Pastikan API Key valid.`, 'error');
+                } finally {
+                    textarea.classList.remove('ai-loading-pulse');
+                }
+            } else {
+                // Local Heuristic Polish
+                setTimeout(() => {
+                    const isId = targetLang === 'Bahasa Indonesia';
+                    if (sectionKey === 'role' && !currentVal.includes('Prioritize') && !currentVal.includes('Prioritaskan')) {
+                        textarea.value = currentVal + (isId ? ' Prioritaskan kecepatan eksekusi nyata di atas teori yang rumit.' : ' Prioritize execution speed and measurable impact over theoretical perfection.');
+                    } else if (sectionKey === 'reasoning' && !currentVal.includes('defend') && !currentVal.includes('mempertahankan')) {
+                        textarea.value = currentVal + (isId ? ' Pertahankan alasan logis di setiap langkah agar rekomendasi benar-benar siap dieksekusi.' : ' Defend each trade-off explicitly so the output is immediately actionable.');
+                    } else {
+                        const regenerated = buildHeuristicMasterPrompt(rawIdea || 'strategic initiative', targetLang, document.getElementById('domainSelect').value);
+                        textarea.value = regenerated[sectionKey] || currentVal;
+                    }
+                    autoResizeAndSync(textarea);
+                    textarea.classList.remove('ai-loading-pulse');
+                    showToast(
+                        isId
+                            ? `Bagian ${sectionKey.toUpperCase()} diperbarui (Mode Heuristik)!`
+                            : `${sectionKey.toUpperCase()} section sharpened (Heuristic Mode)!`,
+                        'success'
+                    );
+                }, 300);
+            }
+        }
+
+        // ============================================================================
+        // UI HELPERS, TABS & EXPORT FORMATS
+        // ============================================================================
+        function setUILanguage(lang) {
+            currentUILang = lang;
+            const dict = UI_TEXT[lang];
+
+            document.getElementById('btnUiId').className = lang === 'id'
+                ? 'px-2 py-1 rounded-lg transition-all bg-claude-coral text-white shadow-sm'
+                : 'px-2 py-1 rounded-lg transition-all text-claude-muted hover:text-white';
+            document.getElementById('btnUiEn').className = lang === 'en'
+                ? 'px-2 py-1 rounded-lg transition-all bg-claude-coral text-white shadow-sm'
+                : 'px-2 py-1 rounded-lg transition-all text-claude-muted hover:text-white';
+
+            Object.keys(dict).forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.textContent = dict[id];
+            });
+
+            updateEngineStatusBadge();
+        }
+
+        function applyAnatomyData(data) {
+            if (data.rawIdea) {
+                document.getElementById('rawPromptInput').value = data.rawIdea;
+            }
+            document.getElementById('fieldRole').value = data.role || '';
+            document.getElementById('fieldTask').value = data.task || '';
+            document.getElementById('fieldContext').value = data.context || '';
+            document.getElementById('fieldReasoning').value = data.reasoning || '';
+            document.getElementById('fieldStop').value = data.stop || '';
+            document.getElementById('fieldOutput').value = data.output || '';
+
+            if (data.insight) {
+                document.getElementById('aiInsightText').textContent = data.insight;
+            }
+
+            setTimeout(() => {
+                document.querySelectorAll('textarea.auto-expand').forEach(ta => {
+                    ta.style.height = 'auto';
+                    ta.style.height = (ta.scrollHeight + 2) + 'px';
+                });
+            }, 20);
+
+            updateCompiledPromptPreview();
+        }
+
+        function autoResizeAndSync(textarea) {
+            textarea.style.height = 'auto';
+            textarea.style.height = (textarea.scrollHeight + 2) + 'px';
+            updateCompiledPromptPreview();
+            updateCompletenessBadge();
+        }
+
+        function updateCompletenessBadge() {
+            const ids = ['fieldRole', 'fieldTask', 'fieldContext', 'fieldReasoning', 'fieldStop', 'fieldOutput'];
+            const filled = ids.filter(id => document.getElementById(id).value.trim().length > 0).length;
+            const badge = document.getElementById('completenessBadge');
+            if (badge) {
+                badge.textContent = currentUILang === 'id' ? `${filled}/6 Komponen Terisi` : `${filled}/6 Pillars Active`;
+            }
+        }
+
+        function loadDefaultSaaSPreset() {
+            const outLang = document.getElementById('outputLangSelect').value;
+            if (outLang === 'Bahasa Indonesia') {
+                applyAnatomyData(DEFAULT_SAAS_ANATOMY_ID);
+                showToast('Template standar 90-Day SaaS GTM (ID) dimuat', 'success');
+            } else {
+                applyAnatomyData(DEFAULT_SAAS_ANATOMY_EN);
+                showToast('Loaded default 90-Day SaaS GTM template (EN)', 'success');
+            }
+        }
+
+        function fillSamplePrompt(key) {
+            const preset = PRESET_TEMPLATES[key];
+            if (!preset) return;
+
+            const outLang = document.getElementById('outputLangSelect').value;
+            const isId = outLang === 'Bahasa Indonesia';
+            document.getElementById('domainSelect').value = preset.domain;
+
+            const data = isId ? preset.id : preset.en;
+            applyAnatomyData(data);
+            showToast(
+                isId ? `Preset "${key.toUpperCase()}" berhasil dimuat!` : `Loaded "${key.toUpperCase()}" preset!`,
+                'info'
+            );
+        }
+
+        function clearRawInput() {
+            const input = document.getElementById('rawPromptInput');
+            input.value = '';
+            input.focus();
+        }
+
+        function switchViewTab(tab) {
+            currentTab = tab;
+            const posterContainer = document.getElementById('posterViewContainer');
+            const rawContainer = document.getElementById('rawViewContainer');
+            const badge = document.getElementById('activeFormatBadge');
+
+            const tabButtons = {
+                poster: document.getElementById('tabPoster'),
+                clean: document.getElementById('tabClean'),
+                xml: document.getElementById('tabXml'),
+                markdown: document.getElementById('tabMarkdown')
+            };
+
+            Object.keys(tabButtons).forEach(k => {
+                if (k === tab) {
+                    tabButtons[k].className = 'px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 bg-claude-inner text-white shadow';
+                } else {
+                    tabButtons[k].className = 'px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all text-claude-muted hover:text-white';
+                }
+            });
+
+            if (tab === 'poster') {
+                posterContainer.classList.remove('hidden');
+                rawContainer.classList.add('hidden');
+                document.querySelectorAll('textarea.auto-expand').forEach(ta => {
+                    ta.style.height = 'auto';
+                    ta.style.height = (ta.scrollHeight + 2) + 'px';
+                });
+            } else {
+                currentFormat = tab; // 'clean' | 'xml' | 'markdown'
+                posterContainer.classList.add('hidden');
+                rawContainer.classList.remove('hidden');
+                const formatLabels = {
+                    clean: 'Format: Plain Text',
+                    xml: 'Format: Claude XML Tags',
+                    markdown: 'Format: Markdown'
+                };
+                if (badge) badge.textContent = formatLabels[tab] || 'Format: Plain Text';
+                updateCompiledPromptPreview();
+            }
+        }
+
+        function getCompiledMasterPrompt(format = currentFormat) {
+            const role = document.getElementById('fieldRole').value.trim();
+            const task = document.getElementById('fieldTask').value.trim();
+            const context = document.getElementById('fieldContext').value.trim();
+            const reasoning = document.getElementById('fieldReasoning').value.trim();
+            const stop = document.getElementById('fieldStop').value.trim();
+            const output = document.getElementById('fieldOutput').value.trim();
+
+            if (format === 'xml') {
+                return `<role>\n${role}\n</role>\n\n<task>\n${task}\n</task>\n\n<context>\n${context}\n</context>\n\n<reasoning>\n${reasoning}\n</reasoning>\n\n<stop_conditions>\n${stop}\n</stop_conditions>\n\n<output>\n${output}\n</output>`;
+            } else if (format === 'markdown') {
+                return `### Role\n${role}\n\n### Task\n${task}\n\n### Context\n${context}\n\n### Reasoning\n${reasoning}\n\n### Stop conditions\n${stop}\n\n### Output\n${output}`;
+            } else {
+                return `${role}\n\n${task}\n\n${context}\n\n${reasoning}\n\n${stop}\n\n${output}`;
+            }
+        }
+
+        function updateCompiledPromptPreview() {
+            const text = getCompiledMasterPrompt(currentFormat);
+            const previewEl = document.getElementById('compiledPromptPreview');
+            if (previewEl) {
+                previewEl.textContent = text;
+            }
+            const charInfo = document.getElementById('charCountInfo');
+            if (charInfo) {
+                const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+                charInfo.textContent = `${words} kata • ${text.length} karakter`;
+            }
+        }
+
+        // ============================================================================
+        // COPY & DOWNLOAD UTILITIES
+        // ============================================================================
+        function copyTextToClipboard(text, successMsg) {
+            const helper = document.getElementById('clipboardHelper');
+            helper.value = text;
+            helper.select();
+            helper.setSelectionRange(0, 99999);
+            try {
+                document.execCommand('copy');
+                showToast(successMsg, 'success');
+            } catch (err) {
+                showToast('Gagal menyalin teks.', 'error');
+            }
+        }
+
+        function copyFullPrompt() {
+            const activeFmt = currentTab === 'poster' ? 'clean' : currentFormat;
+            const compiled = getCompiledMasterPrompt(activeFmt);
+            const msg = currentUILang === 'id'
+                ? `Master Prompt (${activeFmt.toUpperCase()}) disalin ke Clipboard!`
+                : `Master Prompt (${activeFmt.toUpperCase()}) copied to Clipboard!`;
+            copyTextToClipboard(compiled, msg);
+        }
+
+        function downloadMasterPrompt() {
+            const compiled = getCompiledMasterPrompt(currentFormat);
+            const blob = new Blob([compiled], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `claude-anatomy-master-prompt.txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showToast(
+                currentUILang === 'id' ? 'File .TXT berhasil diunduh!' : '.TXT file downloaded!',
+                'success'
+            );
+        }
+
+        // ============================================================================
+        // TEST / EXECUTE MASTER PROMPT MODAL
+        // ============================================================================
+        function openTestModal() {
+            const modal = document.getElementById('testPromptModal');
+            modal.classList.remove('hidden');
+            const compiled = getCompiledMasterPrompt('clean');
+            document.getElementById('modalPromptSummary').textContent = compiled;
+            updateEngineStatusBadge();
+            runPromptSimulation();
+        }
+
+        function closeTestModal() {
+            document.getElementById('testPromptModal').classList.add('hidden');
+        }
+
+        async function runPromptSimulation() {
+            const compiledPrompt = getCompiledMasterPrompt('clean');
+            const loadingEl = document.getElementById('simLoading');
+            const outputEl = document.getElementById('simOutputContent');
+            const activeApiKey = getActiveApiKey();
+            const activeModel = getSelectedGeminiModel();
+
+            loadingEl.classList.remove('hidden');
+            outputEl.textContent = '';
+
+            if (activeApiKey) {
+                try {
+                    const url = `https://generativelanguage.googleapis.com/v1beta/models/${activeModel}:generateContent?key=${encodeURIComponent(activeApiKey)}`;
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            contents: [{ role: 'user', parts: [{ text: compiledPrompt }] }]
+                        })
+                    });
+                    if (!response.ok) {
+                        const errData = await response.json().catch(() => ({}));
+                        throw new Error(errData?.error?.message || `HTTP ${response.status}`);
+                    }
+                    const data = await response.json();
+                    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+                    outputEl.textContent = text;
+                } catch (err) {
+                    outputEl.textContent = `Gagal mengeksekusi dengan API (${err.message}). Silakan periksa kuota atau API Key Anda di panel pengaturan atas.`;
+                } finally {
+                    loadingEl.classList.add('hidden');
+                }
+            } else {
+                // Simulated structured preview when running without API key
+                setTimeout(() => {
+                    const role = document.getElementById('fieldRole').value.trim();
+                    const stop = document.getElementById('fieldStop').value.trim();
+                    outputEl.textContent = `[PRATINJAU SIMULASI LOKAL — TANPA API KEY]\n` +
+                        `================================================================\n` +
+                        `Master Prompt Anda telah tervalidasi dengan struktur 6 pilar:\n\n` +
+                        `• Role Terkunci: ${role}\n` +
+                        `• Kriteria Berhenti (Stop Gate):\n${stop}\n\n` +
+                        `💡 CONTOH FORMAT KELUARAN SPRINT MINGGU 1 (SESUAI PILAR OUTPUT):\n` +
+                        `----------------------------------------------------------------\n` +
+                        `Minggu 1 — Validasi & Eksekusi Inti\n` +
+                        `- Action: Mengunci hipotesis utama & melakukan wawancara/validasi pada 15 pengguna beta pertama.\n` +
+                        `- Owner: Founder / Lead Strategist\n` +
+                        `- Risk: Positioning & Adopsi Awal\n` +
+                        `- Rationale + Output: Mencegah pembuatan fitur/kampanye yang salah sasaran → Dokumen ICP & Messaging Scorecard.\n\n` +
+                        `(Hubungkan Gemini API Key Anda pada tombol "Mode Heuristik / AI Terhubung" di kanan atas untuk mengeksekusi seluruh 12 minggu secara penuh dengan model LLM.)`;
+                    loadingEl.classList.add('hidden');
+                }, 500);
+            }
+        }
+
+        function copySimOutput() {
+            const text = document.getElementById('simOutputContent').textContent;
+            if (!text) return;
+            copyTextToClipboard(
+                text,
+                currentUILang === 'id' ? 'Hasil simulasi disalin!' : 'Simulation output copied!'
+            );
+        }
+
+        // ============================================================================
+        // TOAST NOTIFICATION
+        // ============================================================================
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+
+            const borderColors = {
+                success: 'border-emerald-500/50 bg-[#1B241E] text-emerald-200',
+                error: 'border-rose-500/50 bg-[#26191C] text-rose-200',
+                info: 'border-claude-coral/50 bg-[#231F1D] text-claude-text'
+            };
+
+            toast.className = `pointer-events-auto px-4 py-2.5 rounded-xl border shadow-xl text-xs font-medium flex items-center gap-2 transition-all duration-300 transform translate-y-2 opacity-0 ${borderColors[type] || borderColors.info}`;
+            toast.innerHTML = `
+                <span class="w-2 h-2 rounded-full ${type === 'success' ? 'bg-emerald-400' : type === 'error' ? 'bg-rose-400' : 'bg-claude-coral'}"></span>
+                <span>${message}</span>
+            `;
+
+            container.appendChild(toast);
+
+            requestAnimationFrame(() => {
+                toast.classList.remove('translate-y-2', 'opacity-0');
+            });
+
+            setTimeout(() => {
+                toast.classList.add('translate-y-2', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 3200);
+        }
+    </script>
+</body>
+</html>
