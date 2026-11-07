@@ -248,7 +248,7 @@
                                 onchange="saveModelPreference()"
                                 class="w-full rounded-xl bg-[#141413] border border-claude-border focus:border-claude-coral text-xs text-claude-text px-3 py-2.5 outline-none"
                             >
-                                <option value="gemini-2.5-flash">gemini-2.5-flash (Cepat & Akurat)</option>
+                                <option value="gemini-3.8-flash">gemini-3.8-flash (Cepat & Akurat)</option>
                                 <option value="gemini-2.0-flash">gemini-2.0-flash (Ringan)</option>
                                 <option value="gemini-2.5-pro">gemini-2.5-pro (Deep Reasoning)</option>
                             </select>
@@ -1003,7 +1003,7 @@
         function initApiStorageState() {
             try {
                 const savedKey = localStorage.getItem(STORAGE_KEY_API) || '';
-                const savedModel = localStorage.getItem(STORAGE_KEY_MODEL) || 'gemini-2.5-flash';
+                const savedModel = localStorage.getItem(STORAGE_KEY_MODEL) || 'gemini-3.8-flash';
 
                 const keyInput = document.getElementById('apiKeyInput');
                 const modelSelect = document.getElementById('geminiModelSelect');
@@ -1029,9 +1029,9 @@
 
         function getSelectedGeminiModel() {
             try {
-                return localStorage.getItem(STORAGE_KEY_MODEL) || document.getElementById('geminiModelSelect')?.value || 'gemini-2.5-flash';
+                return localStorage.getItem(STORAGE_KEY_MODEL) || document.getElementById('geminiModelSelect')?.value || 'gemini-3.8-flash';
             } catch (e) {
-                return 'gemini-2.5-flash';
+                return 'gemini-3.8-flash';
             }
         }
 
